@@ -1,0 +1,39 @@
+BOOT_VER=2.00
+GEA_LOTTO=47/15
+GEA_SN=I00104
+SW_VER=0
+baudrate=115200
+board=SK.RES
+bootargs=setenv bootargs console=ttymxc0,115200 cma=16M engi_board=${board} video=${video_type},${lcd_panel}
+bootargsy_mmc=setenv bootargs ${bootargs} ${mtdparts_yocto} root=/dev/mmcblk0p2 rootwait rw
+bootargsy_net=setenv bootargs ${bootargs} ${mtdparts_yocto} root=/dev/nfs ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp
+bootargsy_ubi=setenv bootargs ${bootargs} ${mtdparts_yocto} ubi.mtd=3 root=ubi0:rootfs rootfstype=ubifs
+bootcmd=run bootcmd_ubi
+bootcmd_mmc=run bootargs; run bootargsy_mmc; setenv mmcdev 0; run loadfdt; fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} uImage; bootm ${loadaddr} - ${fdt_addr}
+bootcmd_net=run bootargs; run bootargsy_net; tftp uImage; tftp ${fdt_addr} uImage.dtb; bootm ${loadaddr} - ${fdt_addr}
+bootcmd_ubi=run bootargs; run bootargsy_ubi; nand read ${loadaddr} 0x400000 0x700000;nand read ${fdt_addr} 0xc00000 0x100000;bootm ${loadaddr} - ${fdt_addr}
+bootcmdy_net=run bootargs; run bootargsy_net; tftp uImage; tftp ${fdt_addr} uImage.dtb; bootm ${loadaddr} - ${fdt_addr}
+bootdelay=3
+erase=nand erase 1c0000 4000
+ethact=FEC0
+ethaddr=9C:53:CD:01:6D:B8
+ethprime=FEC0
+fdt_addr=0x83000000
+fdt_file=imx6ul-gea.dtb
+fdt_high=0xffffffff
+fec_addr=9C:53:CD:01:6D:B8
+fecaddr=9C:53:CD:01:6D:B8
+gatewayip=192.168.77.1
+ipaddr=192.168.77.1
+lcd_panel=Amp-WD
+loadaddr=0x80800000
+loadfdt=fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${fdt_file}
+mmcdev=0
+mmcpart=1
+mtdparts_yocto=mtdparts=gpmi-nand:4m(boot),8m(kernel),1m(dtb),-(rootfs)
+netdev=eth0
+netmask=255.255.255.0
+nfsroot=/nfs_icore
+server=�
+serverip=192.168.77.101
+video_type=mxcfb0:dev=lcd

@@ -1,0 +1,39 @@
+setenv BOOT_VER       '2.00'
+setenv GEA_LOTTO      
+setenv GEA_SN         
+setenv SW_VER         
+setenv baudrate       '115200'
+setenv board          
+setenv bootargs       'setenv bootargs console=ttymxc0,115200 cma=16M '
+setenv bootargsy_mmc  'setenv bootargs ${bootargs} ${mtdparts_yocto} root=/dev/mmcblk0p2 rootwait rw'
+setenv bootargsy_net  
+setenv bootargsy_ubi  'setenv bootargs ${bootargs} ${mtdparts_yocto} ubi.mtd=3 root=ubi0:rootfs rootfstype=ubifs quiet'
+setenv bootcmd        'run bootcmd_ubi'
+setenv bootcmd_mmc    'run bootargs; run bootargsy_mmc; setenv mmcdev 0; run loadfdt; fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} uImage; bootm ${loadaddr} - ${fdt_addr}'
+setenv bootcmd_net    
+setenv bootcmd_ubi    'run bootargs; run bootargsy_ubi; nand read ${loadaddr} 0x400000 0x700000;nand read ${fdt_addr} 0xc00000 0x100000;bootm ${loadaddr} - ${fdt_addr}'
+setenv bootcmdy_net   
+setenv bootdelay      '1'
+setenv erase          'nand erase 1c0000 4000'
+setenv ethact         'FEC0'
+setenv ethaddr        '9C:53:CD:01:6D:B8'
+setenv ethprime       'FEC0'
+setenv fdt_addr       '0x83000000'
+setenv fdt_file       'geamx6ul-tef.dtb'
+setenv fdt_high       '0xffffffff'
+setenv fec_addr       '9C:53:CD:01:6D:B8'
+setenv fecaddr        '9C:53:CD:01:6D:B8'
+setenv gatewayip      '192.168.77.1'
+setenv ipaddr         '192.168.77.1'
+setenv lcd_panel      
+setenv loadaddr       '0x80800000'
+setenv loadfdt        'fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${fdt_file}'
+setenv mmcdev         '0'
+setenv mmcpart        '1'
+setenv mtdparts_yocto 'mtdparts=gpmi-nand:4m(boot),8m(kernel),1m(dtb),-(rootfs)'
+setenv netdev         'eth0'
+setenv netmask        '255.255.255.0'
+setenv nfsroot        '/nfs_icore'
+setenv serverip       '192.168.77.101'
+setenv video_type     
+saveenv

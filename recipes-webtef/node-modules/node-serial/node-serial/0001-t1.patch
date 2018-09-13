@@ -1,0 +1,121 @@
+From 454e7e5c9353ec3f20e62891b5a9a99a29cdf2df Mon Sep 17 00:00:00 2001
+From: WANGA <andrea_gai@virgilio.it>
+Date: Mon, 12 Mar 2018 11:03:34 +0100
+Subject: [PATCH] t1
+
+
+diff --git a/src/serialport.h b/src/serialport.h
+index af5e54f..55cb7f3 100644
+--- a/src/serialport.h
++++ b/src/serialport.h
+@@ -2,12 +2,13 @@
+ #ifndef _serialport_h_
+ #define _serialport_h_
+ 
+-#include <nan.h>
+-#include <list>
+-#include <string>
++
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <nan.h>
++#include <list>
++#include <string>
+ 
+ enum SerialPortParity {
+   SERIALPORT_PARITY_NONE = 1,
+@@ -32,7 +33,11 @@ void EIO_AfterList(uv_work_t* req);
+ NAN_METHOD(Open);
+ void EIO_Open(uv_work_t* req);
+ void EIO_AfterOpen(uv_work_t* req);
+-void AfterOpenSuccess(int fd, NanCallback* dataCallback, NanCallback* disconnectedCallback, NanCallback* errorCallback);
++void AfterOpenSuccess(int fd, Nan::Callback* dataCallback, Nan::Callback* disconnectedCallback, Nan::Callback* errorCallback);
++
++NAN_METHOD(Update);
++void EIO_Update(uv_work_t* req);
++void EIO_AfterUpdate(uv_work_t* req);
+ 
+ NAN_METHOD(Write);
+ void EIO_Write(uv_work_t* req);
+@@ -57,18 +62,16 @@ void EIO_AfterDrain(uv_work_t* req);
+ SerialPortParity ToParityEnum(const v8::Handle<v8::String>& str);
+ SerialPortStopBits ToStopBitEnum(double stopBits);
+ 
+-struct OpenBatonPlatformOptions
+-{
+-};
++struct OpenBatonPlatformOptions { };
+ OpenBatonPlatformOptions* ParsePlatformOptions(const v8::Local<v8::Object>& options);
+ 
+ struct OpenBaton {
+ public:
+   char path[1024];
+-  NanCallback* callback;
+-  NanCallback* dataCallback;
+-  NanCallback* disconnectedCallback;
+-  NanCallback* errorCallback;
++  Nan::Callback* callback;
++  Nan::Callback* dataCallback;
++  Nan::Callback* disconnectedCallback;
++  Nan::Callback* errorCallback;
+   int result;
+   int baudRate;
+   int dataBits;
+@@ -91,7 +94,7 @@ public:
+   size_t bufferLength;
+   size_t offset;
+   v8::Persistent<v8::Object> buffer;
+-  NanCallback* callback;
++  Nan::Callback* callback;
+   int result;
+   char errorString[ERROR_STRING_SIZE];
+ };
+@@ -138,7 +141,7 @@ public:
+ struct CloseBaton {
+ public:
+   int fd;
+-  NanCallback* callback;
++  Nan::Callback* callback;
+   char errorString[ERROR_STRING_SIZE];
+ };
+ 
+@@ -155,7 +158,7 @@ public:
+ 
+ struct ListBaton {
+ public:
+-  NanCallback* callback;
++  Nan::Callback* callback;
+   std::list<ListResultItem*> results;
+   char errorString[ERROR_STRING_SIZE];
+ };
+@@ -163,7 +166,7 @@ public:
+ struct FlushBaton {
+ public:
+   int fd;
+-  NanCallback* callback;
++  Nan::Callback callback;
+   int result;
+   char errorString[ERROR_STRING_SIZE];
+ };
+@@ -171,7 +174,7 @@ public:
+ struct SetBaton {
+ public:
+   int fd;
+-  NanCallback* callback;
++  Nan::Callback callback;
+   int result;
+   char errorString[ERROR_STRING_SIZE];
+   bool rts;
+@@ -185,7 +188,7 @@ public:
+ struct DrainBaton {
+ public:
+   int fd;
+-  NanCallback* callback;
++  Nan::Callback callback;
+   int result;
+   char errorString[ERROR_STRING_SIZE];
+ };
+-- 
+2.7.4
+

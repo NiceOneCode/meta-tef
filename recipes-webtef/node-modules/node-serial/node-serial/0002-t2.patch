@@ -1,0 +1,184 @@
+From 4b584391cf7976da1837d2261fb6c523bfde1753 Mon Sep 17 00:00:00 2001
+From: WANGA <andrea_gai@virgilio.it>
+Date: Mon, 12 Mar 2018 11:14:06 +0100
+Subject: [PATCH] t2
+
+
+diff --git a/src/serialport.cpp b/src/serialport.cpp
+index 7700ade..d9bfe41 100644
+--- a/src/serialport.cpp
++++ b/src/serialport.cpp
+@@ -126,10 +126,10 @@ NAN_METHOD(Open) {
+   v8::Local<v8::Object> platformOptions = options->Get(NanNew<v8::String>("platformOptions"))->ToObject();
+   baton->platformOptions = ParsePlatformOptions(platformOptions);
+ 
+-  baton->callback = new NanCallback(callback);
+-  baton->dataCallback = new NanCallback(options->Get(NanNew<v8::String>("dataCallback")).As<v8::Function>());
+-  baton->disconnectedCallback = new NanCallback(options->Get(NanNew<v8::String>("disconnectedCallback")).As<v8::Function>());
+-  baton->errorCallback = new NanCallback(options->Get(NanNew<v8::String>("errorCallback")).As<v8::Function>());
++  baton->callback = new Nan::Callback(callback);
++  baton->dataCallback = new Nan::Callback(options->Get(NanNew<v8::String>("dataCallback")).As<v8::Function>());
++  baton->disconnectedCallback = new Nan::Callback(options->Get(NanNew<v8::String>("disconnectedCallback")).As<v8::Function>());
++  baton->errorCallback = new Nan::Callback(options->Get(NanNew<v8::String>("errorCallback")).As<v8::Function>());
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+@@ -203,7 +203,7 @@ NAN_METHOD(Write) {
+   baton->bufferData = bufferData;
+   baton->bufferLength = bufferLength;
+   baton->offset = 0;
+-  baton->callback = new NanCallback(callback);
++  baton->callback = new Nan::Callback(callback);
+ 
+   QueuedWrite* queuedWrite = new QueuedWrite();
+   memset(queuedWrite, 0, sizeof(QueuedWrite));
+@@ -302,7 +302,7 @@ NAN_METHOD(Close) {
+   CloseBaton* baton = new CloseBaton();
+   memset(baton, 0, sizeof(CloseBaton));
+   baton->fd = fd;
+-  baton->callback = new NanCallback(callback);
++  baton->callback = new Nan::Callback(callback);
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+@@ -358,7 +358,7 @@ NAN_METHOD(List) {
+ 
+   ListBaton* baton = new ListBaton();
+   strcpy(baton->errorString, "");
+-  baton->callback = new NanCallback(callback);
++  baton->callback = new Nan::Callback(callback);
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+@@ -423,7 +423,7 @@ NAN_METHOD(Flush) {
+   FlushBaton* baton = new FlushBaton();
+   memset(baton, 0, sizeof(FlushBaton));
+   baton->fd = fd;
+-  baton->callback = new NanCallback(callback);
++  baton->callback = new Nan::Callback(callback);
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+@@ -480,7 +480,7 @@ NAN_METHOD(Set) {
+   SetBaton* baton = new SetBaton();
+   memset(baton, 0, sizeof(SetBaton));
+   baton->fd = fd;
+-  baton->callback = new NanCallback(callback);
++  baton->callback = new Nan::Callback(callback);
+   baton->brk = options->Get(NanNew<v8::String>("brk"))->ToBoolean()->BooleanValue();
+   baton->rts = options->Get(NanNew<v8::String>("rts"))->ToBoolean()->BooleanValue();
+   baton->cts = options->Get(NanNew<v8::String>("cts"))->ToBoolean()->BooleanValue();
+@@ -535,7 +535,7 @@ NAN_METHOD(Drain) {
+   DrainBaton* baton = new DrainBaton();
+   memset(baton, 0, sizeof(DrainBaton));
+   baton->fd = fd;
+-  baton->callback = new NanCallback(callback);
++  baton->callback = new Nan::Callback(callback);
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+diff --git a/src/serialport_poller.cpp b/src/serialport_poller.cpp
+index 4b5f213..2ea6801 100644
+--- a/src/serialport_poller.cpp
++++ b/src/serialport_poller.cpp
+@@ -88,7 +88,7 @@ NAN_METHOD(SerialportPoller::New) {
+     NanThrowTypeError("Third argument must be a function");
+     NanReturnUndefined();
+   }
+-  obj->callback_ = new NanCallback(args[1].As<v8::Function>());
++  obj->callback_ = new Nan::Callback(args[1].As<v8::Function>());
+   // obj->callCallback();
+ 
+   obj->Wrap(args.This());
+diff --git a/src/serialport_poller.h b/src/serialport_poller.h
+index 664afd4..6f0707d 100644
+--- a/src/serialport_poller.h
++++ b/src/serialport_poller.h
+@@ -9,27 +9,27 @@
+ #include "serialport.h"
+ 
+ class SerialportPoller : public node::ObjectWrap {
+- public:
+-  static void Init(v8::Handle<v8::Object> target);
++public:
++static void Init(v8::Handle<v8::Object> target);
+ 
+-  void callCallback(int status);
++void callCallback(int status);
+ 
+-  void _start();
+-  void _stop();
++void _start();
++void _stop();
+ 
+- private:
+-  SerialportPoller();
+-  ~SerialportPoller();
++private:
++SerialportPoller();
++~SerialportPoller();
+ 
+-  static NAN_METHOD(New);
+-  static NAN_METHOD(Close);
+-  static NAN_METHOD(Start);
+-  
+-  uv_poll_t poll_handle_;
+-  int fd_;
+-  char errorString[ERROR_STRING_SIZE];
++static NAN_METHOD(New);
++static NAN_METHOD(Close);
++static NAN_METHOD(Start);
+ 
+-  NanCallback* callback_;
++uv_poll_t poll_handle_;
++int fd_;
++char errorString[ERROR_STRING_SIZE];
++
++Nan::Callback* callback_;
+ };
+ 
+-#endif
+\ No newline at end of file
++#endif
+diff --git a/src/serialport_unix.cpp b/src/serialport_unix.cpp
+index c7d0af8..e415516 100644
+--- a/src/serialport_unix.cpp
++++ b/src/serialport_unix.cpp
+@@ -49,7 +49,7 @@ int ToBaudConstant(int baudRate);
+ int ToDataBitsConstant(int dataBits);
+ int ToStopBitsConstant(SerialPortStopBits stopBits);
+ 
+-void AfterOpenSuccess(int fd, NanCallback* dataCallback, NanCallback* disconnectedCallback, NanCallback* errorCallback) {
++void AfterOpenSuccess(int fd, Nan::Callback* dataCallback, Nan::Callback* disconnectedCallback, Nan::Callback* errorCallback) {
+   delete dataCallback;
+   delete errorCallback;
+   delete disconnectedCallback;
+diff --git a/src/serialport_win.cpp b/src/serialport_win.cpp
+index e60074f..1fce76d 100644
+--- a/src/serialport_win.cpp
++++ b/src/serialport_win.cpp
+@@ -158,9 +158,9 @@ public:
+   char errorString[ERROR_STRING_SIZE];
+   DWORD errorCode;
+   bool disconnected;
+-  NanCallback* dataCallback;
+-  NanCallback* errorCallback;
+-  NanCallback* disconnectedCallback;
++  Nan::Callback* dataCallback;
++  Nan::Callback* errorCallback;
++  Nan::Callback* disconnectedCallback;
+ };
+ 
+ void EIO_Set(uv_work_t* req) {
+@@ -315,7 +315,7 @@ cleanup:
+   delete req;
+ }
+ 
+-void AfterOpenSuccess(int fd, NanCallback* dataCallback, NanCallback* disconnectedCallback, NanCallback* errorCallback) {
++void AfterOpenSuccess(int fd, Nan::Callback* dataCallback, Nan::Callback* disconnectedCallback, Nan::Callback* errorCallback) {
+   WatchPortBaton* baton = new WatchPortBaton();
+   memset(baton, 0, sizeof(WatchPortBaton));
+   baton->fd = (HANDLE)fd;
+-- 
+2.7.4
+

@@ -1,0 +1,146 @@
+From 778979bf900b4ed847a06e1b70158387c071dc7b Mon Sep 17 00:00:00 2001
+From: WANGA <andrea_gai@virgilio.it>
+Date: Sat, 24 Mar 2018 08:54:36 +0100
+Subject: [PATCH] serialport list terminal js
+
+
+diff --git a/bin/serialport-list.js b/bin/serialport-list.js
+new file mode 100755
+index 0000000..070f68a
+--- /dev/null
++++ b/bin/serialport-list.js
+@@ -0,0 +1,43 @@
++#!/usr/bin/env node
++'use strict';
++
++var serialport = require('../');
++var version = require('../package.json').version;
++var args = require('commander');
++
++args
++  .version(version)
++  .description('List available serial ports')
++  .option('-f, --format <type>', 'Format the output as text, json, or jsonline. default: text', /^(text|json|jsonline)$/i, 'text')
++  .parse(process.argv);
++
++var formatters = {
++  text: function(err, ports) {
++    if (err) {
++      console.error(err);
++      process.exit(1);
++    }
++    ports.forEach(function(port) {
++      console.log(port.comName + '\t' + (port.pnpId || '') + '\t' + (port.manufacturer || ''));
++    });
++  },
++  json: function(err, ports) {
++    if (err) {
++      console.error(JSON.stringify(err));
++      process.exit(1);
++    }
++    console.log(JSON.stringify(ports));
++  },
++  jsonline: function(err, ports) {
++    if (err) {
++      console.error(JSON.stringify(err));
++      process.exit(1);
++    }
++    ports.forEach(function(port) {
++      console.log(JSON.stringify(port));
++    });
++  }
++};
++
++serialport.list(formatters[args.format]);
++
+diff --git a/bin/serialport-terminal.js b/bin/serialport-terminal.js
+new file mode 100755
+index 0000000..a8bc105
+--- /dev/null
++++ b/bin/serialport-terminal.js
+@@ -0,0 +1,82 @@
++#!/usr/bin/env node
++'use strict';
++
++var SerialPort = require('../');
++var version = require('../package.json').version;
++var args = require('commander');
++
++function makeNumber(input) {
++  return Number(input);
++}
++
++args
++  .version(version)
++  .usage('-p <port> [options]')
++  .description('A basic terminal interface for communicating over a serial port. Pressing ctrl+c exits.')
++  .option('-l --list', 'List available ports then exit')
++  // TODO make the port not a flag as it's always required
++  .option('-p, --port, --portname <port>', 'Path or Name of serial port')
++  .option('-b, --baud <baudrate>', 'Baud rate default: 9600', makeNumber, 9600)
++  .option('--databits <databits>', 'Data bits default: 8', makeNumber, 8)
++  .option('--parity <parity>', 'Parity default: none', 'none')
++  .option('--stopbits <bits>', 'Stop bits default: 1', makeNumber, 1)
++  // TODO make this on by default
++  .option('--echo --localecho', 'Print characters as you type them.')
++  .parse(process.argv);
++
++function listPorts() {
++  SerialPort.list(function(err, ports) {
++    if (err) {
++      console.error('Error listing ports', err);
++    } else {
++      ports.forEach(function(port) {
++        console.log(port.comName + '\t' + (port.pnpId || '') + '\t' + (port.manufacturer || ''));
++      });
++    }
++  });
++};
++
++if (args.list) {
++  return listPorts();
++}
++
++if (!args.port) {
++  args.outputHelp();
++  args.missingArgument('port');
++  process.exit(-1);
++}
++
++var openOptions = {
++  baudRate: args.baud,
++  dataBits: args.databits,
++  parity: args.parity,
++  stopBits: args.stopbits
++};
++
++var port = new SerialPort(args.port, openOptions);
++
++process.stdin.resume();
++process.stdin.setRawMode(true);
++process.stdin.on('data', function(s) {
++  if (s[0] === 0x03) {
++    port.close();
++    process.exit(0);
++  }
++  if (args.localecho) {
++    if (s[0] === 0x0d) {
++      process.stdout.write('\n');
++    } else {
++      process.stdout.write(s);
++    }
++  }
++  port.write(s);
++});
++
++port.on('data', function(data) {
++  process.stdout.write(data.toString());
++});
++
++port.on('error', function(err) {
++  console.log('Error', err);
++  process.exit(1);
++});
+-- 
+2.7.4
+

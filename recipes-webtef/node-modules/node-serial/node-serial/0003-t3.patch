@@ -1,0 +1,3008 @@
+From 6eca26494a856b19ffa24240246ea84badcef38b Mon Sep 17 00:00:00 2001
+From: WANGA <andrea_gai@virgilio.it>
+Date: Mon, 12 Mar 2018 13:08:51 +0100
+Subject: [PATCH] t3
+
+
+diff --git a/src/serialport.cpp b/src/serialport.cpp
+index d9bfe41..32a7a5d 100644
+--- a/src/serialport.cpp
++++ b/src/serialport.cpp
+@@ -1,15 +1,13 @@
+-
+-
+-#include "serialport.h"
++#include "./serialport.h"
+ 
+ #ifdef WIN32
+ #define strncasecmp strnicmp
+ #else
+-#include "serialport_poller.h"
++#include "./serialport_poller.h"
+ #endif
+ 
+ struct _WriteQueue {
+-  const int _fd; // the fd that is associated with this write queue
++  const int _fd;  // the fd that is associated with this write queue
+   QueuedWrite _write_queue;
+   uv_mutex_t _write_queue_mutex;
+   _WriteQueue *_next;
+@@ -18,13 +16,12 @@ struct _WriteQueue {
+     uv_mutex_init(&_write_queue_mutex);
+   }
+ 
+-  void lock() { uv_mutex_lock(&_write_queue_mutex); };
+-  void unlock() { uv_mutex_unlock(&_write_queue_mutex); };
++  void lock() { uv_mutex_lock(&_write_queue_mutex); }
++  void unlock() { uv_mutex_unlock(&_write_queue_mutex); }
+ 
+   QueuedWrite &get() { return _write_queue; }
+ };
+ 
+-
+ static _WriteQueue *write_queues = NULL;
+ 
+ static _WriteQueue *qForFD(const int fd) {
+@@ -36,7 +33,7 @@ static _WriteQueue *qForFD(const int fd) {
+     q = q->_next;
+   }
+   return NULL;
+-};
++}
+ 
+ static _WriteQueue *newQForFD(const int fd) {
+   _WriteQueue *q = qForFD(fd);
+@@ -56,7 +53,7 @@ static _WriteQueue *newQForFD(const int fd) {
+   }
+ 
+   return q;
+-};
++}
+ 
+ static void deleteQForFD(const int fd) {
+   if (write_queues == NULL)
+@@ -82,79 +79,97 @@ static void deleteQForFD(const int fd) {
+   }
+ 
+   // It wasn't found...
+-};
++}
+ 
++v8::Local<v8::Value> getValueFromObject(v8::Local<v8::Object> options, std::string key) {
++  v8::Local<v8::String> v8str = Nan::New<v8::String>(key).ToLocalChecked();
++  return Nan::Get(options, v8str).ToLocalChecked();
++}
+ 
++int getIntFromObject(v8::Local<v8::Object> options, std::string key) {
++  return getValueFromObject(options, key)->ToInt32()->Int32Value();
++}
+ 
+-NAN_METHOD(Open) {
+-  NanScope();
++bool getBoolFromObject(v8::Local<v8::Object> options, std::string key) {
++  return getValueFromObject(options, key)->ToBoolean()->BooleanValue();
++}
++
++v8::Local<v8::String> getStringFromObj(v8::Local<v8::Object> options, std::string key) {
++  return getValueFromObject(options, key)->ToString();
++}
+ 
++double getDoubleFromObject(v8::Local<v8::Object> options, std::string key) {
++  return getValueFromObject(options, key)->ToNumber()->NumberValue();
++}
++
++NAN_METHOD(Open) {
+   // path
+-  if(!args[0]->IsString()) {
+-    NanThrowTypeError("First argument must be a string");
+-    NanReturnUndefined();
++  if (!info[0]->IsString()) {
++    Nan::ThrowTypeError("First argument must be a string");
++    return;
+   }
+-  v8::String::Utf8Value path(args[0]->ToString());
++  v8::String::Utf8Value path(info[0]->ToString());
+ 
+   // options
+-  if(!args[1]->IsObject()) {
+-    NanThrowTypeError("Second argument must be an object");
+-    NanReturnUndefined();
++  if (!info[1]->IsObject()) {
++    Nan::ThrowTypeError("Second argument must be an object");
++    return;
+   }
+-  v8::Local<v8::Object> options = args[1]->ToObject();
++  v8::Local<v8::Object> options = info[1]->ToObject();
+ 
+   // callback
+-  if(!args[2]->IsFunction()) {
+-    NanThrowTypeError("Third argument must be a function");
+-    NanReturnUndefined();
++  if (!info[2]->IsFunction()) {
++    Nan::ThrowTypeError("Third argument must be a function");
++    return;
+   }
+-  v8::Local<v8::Function> callback = args[2].As<v8::Function>();
+ 
+   OpenBaton* baton = new OpenBaton();
+   memset(baton, 0, sizeof(OpenBaton));
+   strcpy(baton->path, *path);
+-  baton->baudRate = options->Get(NanNew<v8::String>("baudRate"))->ToInt32()->Int32Value();
+-  baton->dataBits = options->Get(NanNew<v8::String>("dataBits"))->ToInt32()->Int32Value();
+-  baton->bufferSize = options->Get(NanNew<v8::String>("bufferSize"))->ToInt32()->Int32Value();
+-  baton->parity = ToParityEnum(options->Get(NanNew<v8::String>("parity"))->ToString());
+-  baton->stopBits = ToStopBitEnum(options->Get(NanNew<v8::String>("stopBits"))->ToNumber()->NumberValue());
+-  baton->rtscts = options->Get(NanNew<v8::String>("rtscts"))->ToBoolean()->BooleanValue();
+-  baton->xon = options->Get(NanNew<v8::String>("xon"))->ToBoolean()->BooleanValue();
+-  baton->xoff = options->Get(NanNew<v8::String>("xoff"))->ToBoolean()->BooleanValue();
+-  baton->xany = options->Get(NanNew<v8::String>("xany"))->ToBoolean()->BooleanValue();
+-
+-  v8::Local<v8::Object> platformOptions = options->Get(NanNew<v8::String>("platformOptions"))->ToObject();
++  baton->baudRate = getIntFromObject(options, "baudRate");
++  baton->dataBits = getIntFromObject(options, "dataBits");
++  baton->bufferSize = getIntFromObject(options, "bufferSize");
++  baton->parity = ToParityEnum(getStringFromObj(options, "parity"));
++  baton->stopBits = ToStopBitEnum(getDoubleFromObject(options, "stopBits"));
++  baton->rtscts = getBoolFromObject(options, "rtscts");
++  baton->xon = getBoolFromObject(options, "xon");
++  baton->xoff = getBoolFromObject(options, "xoff");
++  baton->xany = getBoolFromObject(options, "xany");
++  baton->hupcl = getBoolFromObject(options, "hupcl");
++  baton->lock = getBoolFromObject(options, "lock");
++
++  v8::Local<v8::Object> platformOptions = getValueFromObject(options, "platformOptions")->ToObject();
+   baton->platformOptions = ParsePlatformOptions(platformOptions);
+ 
+-  baton->callback = new Nan::Callback(callback);
+-  baton->dataCallback = new Nan::Callback(options->Get(NanNew<v8::String>("dataCallback")).As<v8::Function>());
+-  baton->disconnectedCallback = new Nan::Callback(options->Get(NanNew<v8::String>("disconnectedCallback")).As<v8::Function>());
+-  baton->errorCallback = new Nan::Callback(options->Get(NanNew<v8::String>("errorCallback")).As<v8::Function>());
++  baton->callback.Reset(info[2].As<v8::Function>());
++  baton->dataCallback = new Nan::Callback(getValueFromObject(options, "dataCallback").As<v8::Function>());
++  baton->disconnectedCallback = new Nan::Callback(getValueFromObject(options, "disconnectedCallback").As<v8::Function>());
++  baton->errorCallback = new Nan::Callback(getValueFromObject(options, "errorCallback").As<v8::Function>());
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+ 
+   uv_queue_work(uv_default_loop(), req, EIO_Open, (uv_after_work_cb)EIO_AfterOpen);
+ 
+-  NanReturnUndefined();
++  return;
+ }
+ 
+ void EIO_AfterOpen(uv_work_t* req) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   OpenBaton* data = static_cast<OpenBaton*>(req->data);
+ 
+-  v8::Handle<v8::Value> argv[2];
+-  if(data->errorString[0]) {
+-    argv[0] = v8::Exception::Error(NanNew<v8::String>(data->errorString));
+-    argv[1] = NanUndefined();
+-    // not needed for AfterOpenSuccess
++  v8::Local<v8::Value> argv[2];
++  if (data->errorString[0]) {
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(data->errorString).ToLocalChecked());
++    argv[1] = Nan::Undefined();
++    // not needed because we're not calling AfterOpenSuccess
+     delete data->dataCallback;
+     delete data->errorCallback;
+     delete data->disconnectedCallback;
+   } else {
+-    argv[0] = NanUndefined();
+-    argv[1] = NanNew<v8::Int32>(data->result);
++    argv[0] = Nan::Null();
++    argv[1] = Nan::New<v8::Int32>(data->result);
+ 
+     int fd = argv[1]->ToInt32()->Int32Value();
+     newQForFD(fd);
+@@ -162,48 +177,103 @@ void EIO_AfterOpen(uv_work_t* req) {
+     AfterOpenSuccess(data->result, data->dataCallback, data->disconnectedCallback, data->errorCallback);
+   }
+ 
+-  data->callback->Call(2, argv);
++  data->callback.Call(2, argv);
+ 
+   delete data->platformOptions;
+-  delete data->callback;
+   delete data;
+   delete req;
+ }
+ 
+-NAN_METHOD(Write) {
+-  NanScope();
++NAN_METHOD(Update) {
++  // file descriptor
++  if (!info[0]->IsInt32()) {
++    Nan::ThrowTypeError("First argument must be an int");
++    return;
++  }
++  int fd = info[0]->ToInt32()->Int32Value();
++
++  // options
++  if (!info[1]->IsObject()) {
++    Nan::ThrowTypeError("Second argument must be an object");
++    return;
++  }
++  v8::Local<v8::Object> options = info[1]->ToObject();
++
++  if (!Nan::Has(options, Nan::New<v8::String>("baudRate").ToLocalChecked()).FromMaybe(false)) {
++    Nan::ThrowTypeError("baudRate must be set on options object");
++    return;
++  }
++
++  // callback
++  if (!info[2]->IsFunction()) {
++    Nan::ThrowTypeError("Third argument must be a function");
++    return;
++  }
++
++  ConnectionOptionsBaton* baton = new ConnectionOptionsBaton();
++  memset(baton, 0, sizeof(ConnectionOptionsBaton));
++
++  baton->fd = fd;
++  baton->baudRate = Nan::Get(options, Nan::New<v8::String>("baudRate").ToLocalChecked()).ToLocalChecked()->ToInt32()->Int32Value();
++  baton->callback.Reset(info[2].As<v8::Function>());
++
++  uv_work_t* req = new uv_work_t();
++  req->data = baton;
++
++  uv_queue_work(uv_default_loop(), req, EIO_Update, (uv_after_work_cb)EIO_AfterUpdate);
++
++  return;
++}
+ 
++void EIO_AfterUpdate(uv_work_t* req) {
++  Nan::HandleScope scope;
++
++  ConnectionOptionsBaton* data = static_cast<ConnectionOptionsBaton*>(req->data);
++
++  v8::Local<v8::Value> argv[1];
++  if (data->errorString[0]) {
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(data->errorString).ToLocalChecked());
++  } else {
++    argv[0] = Nan::Null();
++  }
++
++  data->callback.Call(1, argv);
++
++  delete data;
++  delete req;
++}
++
++NAN_METHOD(Write) {
+   // file descriptor
+-  if(!args[0]->IsInt32()) {
+-    NanThrowTypeError("First argument must be an int");
+-    NanReturnUndefined();
++  if (!info[0]->IsInt32()) {
++    Nan::ThrowTypeError("First argument must be an int");
++    return;
+   }
+-  int fd = args[0]->ToInt32()->Int32Value();
++  int fd = info[0]->ToInt32()->Int32Value();
+ 
+   // buffer
+-  if(!args[1]->IsObject() || !node::Buffer::HasInstance(args[1])) {
+-    NanThrowTypeError("Second argument must be a buffer");
+-    NanReturnUndefined();
++  if (!info[1]->IsObject() || !node::Buffer::HasInstance(info[1])) {
++    Nan::ThrowTypeError("Second argument must be a buffer");
++    return;
+   }
+-  v8::Local<v8::Object> buffer = args[1]->ToObject();
++  v8::Local<v8::Object> buffer = info[1]->ToObject();
+   char* bufferData = node::Buffer::Data(buffer);
+   size_t bufferLength = node::Buffer::Length(buffer);
+ 
+   // callback
+-  if(!args[2]->IsFunction()) {
+-    NanThrowTypeError("Third argument must be a function");
+-    NanReturnUndefined();
++  if (!info[2]->IsFunction()) {
++    Nan::ThrowTypeError("Third argument must be a function");
++    return;
+   }
+-  v8::Local<v8::Function> callback = args[2].As<v8::Function>();
+ 
+   WriteBaton* baton = new WriteBaton();
+   memset(baton, 0, sizeof(WriteBaton));
+   baton->fd = fd;
+-  NanAssignPersistent<v8::Object>(baton->buffer, buffer);
++  baton->buffer.Reset(buffer);
+   baton->bufferData = bufferData;
+   baton->bufferLength = bufferLength;
+   baton->offset = 0;
+-  baton->callback = new Nan::Callback(callback);
++  baton->callback.Reset(info[2].As<v8::Function>());
+ 
+   QueuedWrite* queuedWrite = new QueuedWrite();
+   memset(queuedWrite, 0, sizeof(QueuedWrite));
+@@ -211,9 +281,9 @@ NAN_METHOD(Write) {
+   queuedWrite->req.data = queuedWrite;
+ 
+   _WriteQueue *q = qForFD(fd);
+-  if(!q) {
+-    NanThrowTypeError("There's no write queue for that file descriptor (write)!");
+-    NanReturnUndefined();
++  if (!q) {
++    Nan::ThrowTypeError("There's no write queue for that file descriptor (write)!");
++    return;
+   }
+ 
+   q->lock();
+@@ -227,38 +297,36 @@ NAN_METHOD(Write) {
+   }
+   q->unlock();
+ 
+-  NanReturnUndefined();
++  return;
+ }
+ 
+ void EIO_AfterWrite(uv_work_t* req) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   QueuedWrite* queuedWrite = static_cast<QueuedWrite*>(req->data);
+   WriteBaton* data = static_cast<WriteBaton*>(queuedWrite->baton);
+ 
+-  v8::Handle<v8::Value> argv[2];
+-  if(data->errorString[0]) {
+-    argv[0] = v8::Exception::Error(NanNew<v8::String>(data->errorString));
+-    argv[1] = NanUndefined();
++  v8::Local<v8::Value> argv[1];
++  if (data->errorString[0]) {
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(data->errorString).ToLocalChecked());
+   } else {
+-    argv[0] = NanUndefined();
+-    argv[1] = NanNew<v8::Int32>(data->result);
++    argv[0] = Nan::Null();
+   }
+-  data->callback->Call(2, argv);
+ 
+   if (data->offset < data->bufferLength && !data->errorString[0]) {
+     // We're not done with this baton, so throw it right back onto the queue.
+-	  // Don't re-push the write in the event loop if there was an error; because same error could occur again!
++    // Don't re-push the write in the event loop if there was an error; because same error could occur again!
+     // TODO: Add a uv_poll here for unix...
+-    //fprintf(stderr, "Write again...\n");
++    // fprintf(stderr, "Write again...\n");
+     uv_queue_work(uv_default_loop(), req, EIO_Write, (uv_after_work_cb)EIO_AfterWrite);
+     return;
+   }
+ 
++  // throwing errors instead of returning them at this point is rude
+   int fd = data->fd;
+   _WriteQueue *q = qForFD(fd);
+-  if(!q) {
+-    NanThrowTypeError("There's no write queue for that file descriptor (after write)!");
++  if (!q) {
++    Nan::ThrowTypeError("There's no write queue for that file descriptor (after write)!");
+     return;
+   }
+ 
+@@ -268,6 +336,8 @@ void EIO_AfterWrite(uv_work_t* req) {
+   // remove this one from the list
+   queuedWrite->remove();
+ 
++  data->callback.Call(1, argv);
++
+   // If there are any left, start a new thread to write the next one.
+   if (!write_queue.empty()) {
+     // Always pull the next work item from the head of the queue
+@@ -276,127 +346,125 @@ void EIO_AfterWrite(uv_work_t* req) {
+   }
+   q->unlock();
+ 
+-  NanDisposePersistent(data->buffer);
+-  delete data->callback;
++  data->buffer.Reset();
+   delete data;
+   delete queuedWrite;
+ }
+ 
+ NAN_METHOD(Close) {
+-  NanScope();
+-
+   // file descriptor
+-  if(!args[0]->IsInt32()) {
+-    NanThrowTypeError("First argument must be an int");
+-    NanReturnUndefined();
++  if (!info[0]->IsInt32()) {
++    Nan::ThrowTypeError("First argument must be an int");
++    return;
+   }
+-  int fd = args[0]->ToInt32()->Int32Value();
+ 
+   // callback
+-  if(!args[1]->IsFunction()) {
+-    NanThrowTypeError("Second argument must be a function");
+-    NanReturnUndefined();
++  if (!info[1]->IsFunction()) {
++    Nan::ThrowTypeError("Second argument must be a function");
++    return;
+   }
+-  v8::Local<v8::Function> callback = args[1].As<v8::Function>();
+ 
+   CloseBaton* baton = new CloseBaton();
+   memset(baton, 0, sizeof(CloseBaton));
+-  baton->fd = fd;
+-  baton->callback = new Nan::Callback(callback);
++  baton->fd = info[0]->ToInt32()->Int32Value();
++  baton->callback.Reset(info[1].As<v8::Function>());
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+   uv_queue_work(uv_default_loop(), req, EIO_Close, (uv_after_work_cb)EIO_AfterClose);
+ 
+-  NanReturnUndefined();
++  return;
+ }
+ 
+ void EIO_AfterClose(uv_work_t* req) {
+-  NanScope();
+-
++  Nan::HandleScope scope;
+   CloseBaton* data = static_cast<CloseBaton*>(req->data);
+ 
+-  v8::Handle<v8::Value> argv[1];
+-  if(data->errorString[0]) {
+-    argv[0] = v8::Exception::Error(NanNew<v8::String>(data->errorString));
++  v8::Local<v8::Value> argv[1];
++  if (data->errorString[0]) {
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(data->errorString).ToLocalChecked());
+   } else {
+-    argv[0] = NanUndefined();
++    argv[0] = Nan::Null();
+ 
+     // We don't have an error, so clean up the write queue for that fd
+-
+     _WriteQueue *q = qForFD(data->fd);
+     if (q) {
+       q->lock();
+       QueuedWrite &write_queue = q->get();
+       while (!write_queue.empty()) {
+         QueuedWrite *del_q = write_queue.next;
+-        NanDisposePersistent(del_q->baton->buffer);
++        del_q->baton->buffer.Reset();
+         del_q->remove();
+       }
+       q->unlock();
+-
+       deleteQForFD(data->fd);
+     }
+-
+   }
+-  data->callback->Call(1, argv);
++  data->callback.Call(1, argv);
+ 
+-  delete data->callback;
+   delete data;
+   delete req;
+ }
+ 
+ NAN_METHOD(List) {
+-  NanScope();
+-
+   // callback
+-  if(!args[0]->IsFunction()) {
+-    NanThrowTypeError("First argument must be a function");
+-    NanReturnUndefined();
++  if (!info[0]->IsFunction()) {
++    Nan::ThrowTypeError("First argument must be a function");
++    return;
+   }
+-  v8::Local<v8::Function> callback = args[0].As<v8::Function>();
+ 
+   ListBaton* baton = new ListBaton();
+   strcpy(baton->errorString, "");
+-  baton->callback = new Nan::Callback(callback);
++  baton->callback.Reset(info[0].As<v8::Function>());
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+   uv_queue_work(uv_default_loop(), req, EIO_List, (uv_after_work_cb)EIO_AfterList);
+ 
+-  NanReturnUndefined();
++  return;
++}
++
++void setIfNotEmpty(v8::Local<v8::Object> item, std::string key, const char *value) {
++  v8::Local<v8::String> v8key = Nan::New<v8::String>(key).ToLocalChecked();
++  if (strlen(value) > 0) {
++    Nan::Set(item, v8key, Nan::New<v8::String>(value).ToLocalChecked());
++  } else {
++    Nan::Set(item, v8key, Nan::Undefined());
++  }
++
+ }
+ 
+ void EIO_AfterList(uv_work_t* req) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   ListBaton* data = static_cast<ListBaton*>(req->data);
+ 
+-  v8::Handle<v8::Value> argv[2];
+-  if(data->errorString[0]) {
+-    argv[0] = v8::Exception::Error(NanNew<v8::String>(data->errorString));
+-    argv[1] = NanUndefined();
++  v8::Local<v8::Value> argv[2];
++  if (data->errorString[0]) {
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(data->errorString).ToLocalChecked());
++    argv[1] = Nan::Undefined();
+   } else {
+-    v8::Local<v8::Array> results = NanNew<v8::Array>();
++    v8::Local<v8::Array> results = Nan::New<v8::Array>();
+     int i = 0;
+-    for(std::list<ListResultItem*>::iterator it = data->results.begin(); it != data->results.end(); ++it, i++) {
+-      v8::Local<v8::Object> item = NanNew<v8::Object>();
+-      item->Set(NanNew<v8::String>("comName"), NanNew<v8::String>((*it)->comName.c_str()));
+-      item->Set(NanNew<v8::String>("manufacturer"), NanNew<v8::String>((*it)->manufacturer.c_str()));
+-      item->Set(NanNew<v8::String>("serialNumber"), NanNew<v8::String>((*it)->serialNumber.c_str()));
+-      item->Set(NanNew<v8::String>("pnpId"), NanNew<v8::String>((*it)->pnpId.c_str()));
+-      item->Set(NanNew<v8::String>("locationId"), NanNew<v8::String>((*it)->locationId.c_str()));
+-      item->Set(NanNew<v8::String>("vendorId"), NanNew<v8::String>((*it)->vendorId.c_str()));
+-      item->Set(NanNew<v8::String>("productId"), NanNew<v8::String>((*it)->productId.c_str()));
+-      results->Set(i, item);
++    for (std::list<ListResultItem*>::iterator it = data->results.begin(); it != data->results.end(); ++it, i++) {
++      v8::Local<v8::Object> item = Nan::New<v8::Object>();
++
++      setIfNotEmpty(item, "comName", (*it)->comName.c_str());
++      setIfNotEmpty(item, "manufacturer", (*it)->manufacturer.c_str());
++      setIfNotEmpty(item, "serialNumber", (*it)->serialNumber.c_str());
++      setIfNotEmpty(item, "pnpId", (*it)->pnpId.c_str());
++      setIfNotEmpty(item, "locationId", (*it)->locationId.c_str());
++      setIfNotEmpty(item, "vendorId", (*it)->vendorId.c_str());
++      setIfNotEmpty(item, "productId", (*it)->productId.c_str());
++
++      Nan::Set(results, i, item);
+     }
+-    argv[0] = NanUndefined();
++    argv[0] = Nan::Null();
+     argv[1] = results;
+   }
+-  data->callback->Call(2, argv);
++  data->callback.Call(2, argv);
+ 
+-  delete data->callback;
+-  for(std::list<ListResultItem*>::iterator it = data->results.begin(); it != data->results.end(); ++it) {
++  for (std::list<ListResultItem*>::iterator it = data->results.begin(); it != data->results.end(); ++it) {
+     delete *it;
+   }
+   delete data;
+@@ -404,210 +472,194 @@ void EIO_AfterList(uv_work_t* req) {
+ }
+ 
+ NAN_METHOD(Flush) {
+-  NanScope();
+-
+   // file descriptor
+-  if(!args[0]->IsInt32()) {
+-    NanThrowTypeError("First argument must be an int");
+-    NanReturnUndefined();
++  if (!info[0]->IsInt32()) {
++    Nan::ThrowTypeError("First argument must be an int");
++    return;
+   }
+-  int fd = args[0]->ToInt32()->Int32Value();
++  int fd = info[0]->ToInt32()->Int32Value();
+ 
+   // callback
+-  if(!args[1]->IsFunction()) {
+-    NanThrowTypeError("Second argument must be a function");
+-    NanReturnUndefined();
++  if (!info[1]->IsFunction()) {
++    Nan::ThrowTypeError("Second argument must be a function");
++    return;
+   }
+-  v8::Local<v8::Function> callback = args[1].As<v8::Function>();
++  v8::Local<v8::Function> callback = info[1].As<v8::Function>();
+ 
+   FlushBaton* baton = new FlushBaton();
+   memset(baton, 0, sizeof(FlushBaton));
+   baton->fd = fd;
+-  baton->callback = new Nan::Callback(callback);
++  baton->callback.Reset(callback);
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+   uv_queue_work(uv_default_loop(), req, EIO_Flush, (uv_after_work_cb)EIO_AfterFlush);
+ 
+-  NanReturnUndefined();
++  return;
+ }
+ 
+ void EIO_AfterFlush(uv_work_t* req) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   FlushBaton* data = static_cast<FlushBaton*>(req->data);
+ 
+-  v8::Handle<v8::Value> argv[2];
++  v8::Local<v8::Value> argv[2];
+ 
+-  if(data->errorString[0]) {
+-    argv[0] = v8::Exception::Error(NanNew<v8::String>(data->errorString));
+-    argv[1] = NanUndefined();
++  if (data->errorString[0]) {
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(data->errorString).ToLocalChecked());
++    argv[1] = Nan::Undefined();
+   } else {
+-    argv[0] = NanUndefined();
+-    argv[1] = NanNew<v8::Int32>(data->result);
++    argv[0] = Nan::Undefined();
++    argv[1] = Nan::New<v8::Int32>(data->result);
+   }
+-  data->callback->Call(2, argv);
+ 
+-  delete data->callback;
++  data->callback.Call(2, argv);
++
+   delete data;
+   delete req;
+ }
+ 
+ NAN_METHOD(Set) {
+-  NanScope();
+-
+   // file descriptor
+-  if(!args[0]->IsInt32()) {
+-    NanThrowTypeError("First argument must be an int");
+-    NanReturnUndefined();
++  if (!info[0]->IsInt32()) {
++    Nan::ThrowTypeError("First argument must be an int");
++    return;
+   }
+-  int fd = args[0]->ToInt32()->Int32Value();
++  int fd = info[0]->ToInt32()->Int32Value();
+ 
+   // options
+-  if(!args[1]->IsObject()) {
+-    NanThrowTypeError("Second argument must be an object");
+-    NanReturnUndefined();
++  if (!info[1]->IsObject()) {
++    Nan::ThrowTypeError("Second argument must be an object");
++    return;
+   }
+-  v8::Local<v8::Object> options = args[1]->ToObject();
++  v8::Local<v8::Object> options = info[1]->ToObject();
+ 
+   // callback
+-  if(!args[2]->IsFunction()) {
+-    NanThrowTypeError("Third argument must be a function");
+-    NanReturnUndefined();
++  if (!info[2]->IsFunction()) {
++    Nan::ThrowTypeError("Third argument must be a function");
++    return;
+   }
+-  v8::Local<v8::Function> callback = args[2].As<v8::Function>();
++  v8::Local<v8::Function> callback = info[2].As<v8::Function>();
+ 
+   SetBaton* baton = new SetBaton();
+   memset(baton, 0, sizeof(SetBaton));
+   baton->fd = fd;
+-  baton->callback = new Nan::Callback(callback);
+-  baton->brk = options->Get(NanNew<v8::String>("brk"))->ToBoolean()->BooleanValue();
+-  baton->rts = options->Get(NanNew<v8::String>("rts"))->ToBoolean()->BooleanValue();
+-  baton->cts = options->Get(NanNew<v8::String>("cts"))->ToBoolean()->BooleanValue();
+-  baton->dtr = options->Get(NanNew<v8::String>("dtr"))->ToBoolean()->BooleanValue();
+-  baton->dsr = options->Get(NanNew<v8::String>("dsr"))->ToBoolean()->BooleanValue();
++  baton->callback.Reset(callback);
++  baton->brk = getBoolFromObject(options, "brk");
++  baton->rts = getBoolFromObject(options, "rts");
++  baton->cts = getBoolFromObject(options, "cts");
++  baton->dtr = getBoolFromObject(options, "dtr");
++  baton->dsr = getBoolFromObject(options, "dsr");
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+   uv_queue_work(uv_default_loop(), req, EIO_Set, (uv_after_work_cb)EIO_AfterSet);
+ 
+-  NanReturnUndefined();
++  return;
+ }
+ 
+ void EIO_AfterSet(uv_work_t* req) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   SetBaton* data = static_cast<SetBaton*>(req->data);
+ 
+-  v8::Handle<v8::Value> argv[2];
++  v8::Local<v8::Value> argv[1];
+ 
+-  if(data->errorString[0]) {
+-    argv[0] = v8::Exception::Error(NanNew<v8::String>(data->errorString));
+-    argv[1] = NanUndefined();
++  if (data->errorString[0]) {
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(data->errorString).ToLocalChecked());
+   } else {
+-    argv[0] = NanUndefined();
+-    argv[1] = NanNew<v8::Int32>(data->result);
++    argv[0] = Nan::Null();
+   }
+-  data->callback->Call(2, argv);
++  data->callback.Call(1, argv);
+ 
+-  delete data->callback;
+   delete data;
+   delete req;
+ }
+ 
+ NAN_METHOD(Drain) {
+-  NanScope();
+-
+   // file descriptor
+-  if(!args[0]->IsInt32()) {
+-    NanThrowTypeError("First argument must be an int");
+-    NanReturnUndefined();
++  if (!info[0]->IsInt32()) {
++    Nan::ThrowTypeError("First argument must be an int");
++    return;
+   }
+-  int fd = args[0]->ToInt32()->Int32Value();
++  int fd = info[0]->ToInt32()->Int32Value();
+ 
+   // callback
+-  if(!args[1]->IsFunction()) {
+-    NanThrowTypeError("Second argument must be a function");
+-    NanReturnUndefined();
++  if (!info[1]->IsFunction()) {
++    Nan::ThrowTypeError("Second argument must be a function");
++    return;
+   }
+-  v8::Local<v8::Function> callback = args[1].As<v8::Function>();
+ 
+   DrainBaton* baton = new DrainBaton();
+   memset(baton, 0, sizeof(DrainBaton));
+   baton->fd = fd;
+-  baton->callback = new Nan::Callback(callback);
++  baton->callback.Reset(info[1].As<v8::Function>());
+ 
+   uv_work_t* req = new uv_work_t();
+   req->data = baton;
+   uv_queue_work(uv_default_loop(), req, EIO_Drain, (uv_after_work_cb)EIO_AfterDrain);
+ 
+-  NanReturnUndefined();
++  return;
+ }
+ 
+ void EIO_AfterDrain(uv_work_t* req) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   DrainBaton* data = static_cast<DrainBaton*>(req->data);
+ 
+-  v8::Handle<v8::Value> argv[2];
++  v8::Local<v8::Value> argv[1];
+ 
+-  if(data->errorString[0]) {
+-    argv[0] = v8::Exception::Error(NanNew<v8::String>(data->errorString));
+-    argv[1] = NanUndefined();
++  if (data->errorString[0]) {
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(data->errorString).ToLocalChecked());
+   } else {
+-    argv[0] = NanUndefined();
+-    argv[1] = NanNew<v8::Int32>(data->result);
++    argv[0] = Nan::Null();
+   }
+-  data->callback->Call(2, argv);
++  data->callback.Call(1, argv);
+ 
+-  delete data->callback;
+   delete data;
+   delete req;
+ }
+ 
+-// Change request for ticket #401 - credit to @sguilly
+-SerialPortParity NAN_INLINE(ToParityEnum(const v8::Handle<v8::String>& v8str)) {
+-  NanScope();
+-  NanUtf8String *str = new NanUtf8String(v8str);
+-  size_t count = strlen(**str);
++SerialPortParity NAN_INLINE(ToParityEnum(const v8::Local<v8::String>& v8str)) {
++  Nan::HandleScope scope;
++  Nan::Utf8String str(v8str);
++  size_t count = strlen(*str);
+   SerialPortParity parity = SERIALPORT_PARITY_NONE;
+-  if(!strncasecmp(**str, "none", count)) {
+-  parity = SERIALPORT_PARITY_NONE;
+-  } else if(!strncasecmp(**str, "even", count)) {
+-  parity = SERIALPORT_PARITY_EVEN;
+-  } else if(!strncasecmp(**str, "mark", count)) {
+-  parity = SERIALPORT_PARITY_MARK;
+-  } else if(!strncasecmp(**str, "odd", count)) {
+-  parity = SERIALPORT_PARITY_ODD;
+-  } else if(!strncasecmp(**str, "space", count)) {
+-  parity = SERIALPORT_PARITY_SPACE;
+-  }
+-  // delete[] str;
++  if (!strncasecmp(*str, "none", count)) {
++    parity = SERIALPORT_PARITY_NONE;
++  } else if (!strncasecmp(*str, "even", count)) {
++    parity = SERIALPORT_PARITY_EVEN;
++  } else if (!strncasecmp(*str, "mark", count)) {
++    parity = SERIALPORT_PARITY_MARK;
++  } else if (!strncasecmp(*str, "odd", count)) {
++    parity = SERIALPORT_PARITY_ODD;
++  } else if (!strncasecmp(*str, "space", count)) {
++    parity = SERIALPORT_PARITY_SPACE;
++  }
+   return parity;
+ }
+ 
+-
+ SerialPortStopBits NAN_INLINE(ToStopBitEnum(double stopBits)) {
+-  if(stopBits > 1.4 && stopBits < 1.6) {
++  if (stopBits > 1.4 && stopBits < 1.6) {
+     return SERIALPORT_STOPBITS_ONE_FIVE;
+   }
+-  if(stopBits == 2) {
++  if (stopBits == 2) {
+     return SERIALPORT_STOPBITS_TWO;
+   }
+   return SERIALPORT_STOPBITS_ONE;
+ }
+ 
+ extern "C" {
+-  void init (v8::Handle<v8::Object> target)
+-  {
+-    NanScope();
+-    NODE_SET_METHOD(target, "set", Set);
+-    NODE_SET_METHOD(target, "open", Open);
+-    NODE_SET_METHOD(target, "write", Write);
+-    NODE_SET_METHOD(target, "close", Close);
+-    NODE_SET_METHOD(target, "list", List);
+-    NODE_SET_METHOD(target, "flush", Flush);
+-    NODE_SET_METHOD(target, "drain", Drain);
++  void init(v8::Handle<v8::Object> target) {
++    Nan::HandleScope scope;
++    Nan::SetMethod(target, "set", Set);
++    Nan::SetMethod(target, "open", Open);
++    Nan::SetMethod(target, "update", Update);
++    Nan::SetMethod(target, "write", Write);
++    Nan::SetMethod(target, "close", Close);
++    Nan::SetMethod(target, "list", List);
++    Nan::SetMethod(target, "flush", Flush);
++    Nan::SetMethod(target, "drain", Drain);
+ 
+ #ifndef WIN32
+     SerialportPoller::Init(target);
+diff --git a/src/serialport.h b/src/serialport.h
+index 55cb7f3..0840172 100644
+--- a/src/serialport.h
++++ b/src/serialport.h
+@@ -1,7 +1,5 @@
+-
+-#ifndef _serialport_h_
+-#define _serialport_h_
+-
++#ifndef SRC_SERIALPORT_H_
++#define SRC_SERIALPORT_H_
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -9,19 +7,18 @@
+ #include <nan.h>
+ #include <list>
+ #include <string>
+-
+ enum SerialPortParity {
+-  SERIALPORT_PARITY_NONE = 1,
+-  SERIALPORT_PARITY_MARK = 2,
+-  SERIALPORT_PARITY_EVEN = 3,
+-  SERIALPORT_PARITY_ODD = 4,
++  SERIALPORT_PARITY_NONE  = 1,
++  SERIALPORT_PARITY_MARK  = 2,
++  SERIALPORT_PARITY_EVEN  = 3,
++  SERIALPORT_PARITY_ODD   = 4,
+   SERIALPORT_PARITY_SPACE = 5
+ };
+ 
+ enum SerialPortStopBits {
+-  SERIALPORT_STOPBITS_ONE = 1,
++  SERIALPORT_STOPBITS_ONE      = 1,
+   SERIALPORT_STOPBITS_ONE_FIVE = 2,
+-  SERIALPORT_STOPBITS_TWO = 3
++  SERIALPORT_STOPBITS_TWO      = 3
+ };
+ 
+ #define ERROR_STRING_SIZE 1024
+@@ -59,19 +56,19 @@ NAN_METHOD(Drain);
+ void EIO_Drain(uv_work_t* req);
+ void EIO_AfterDrain(uv_work_t* req);
+ 
+-SerialPortParity ToParityEnum(const v8::Handle<v8::String>& str);
++
++
++SerialPortParity ToParityEnum(const v8::Local<v8::String>& str);
+ SerialPortStopBits ToStopBitEnum(double stopBits);
+ 
+ struct OpenBatonPlatformOptions { };
+ OpenBatonPlatformOptions* ParsePlatformOptions(const v8::Local<v8::Object>& options);
+ 
+ struct OpenBaton {
+-public:
++  char errorString[ERROR_STRING_SIZE];
++  Nan::Callback callback;
+   char path[1024];
+-  Nan::Callback* callback;
+-  Nan::Callback* dataCallback;
+-  Nan::Callback* disconnectedCallback;
+-  Nan::Callback* errorCallback;
++  int fd;
+   int result;
+   int baudRate;
+   int dataBits;
+@@ -81,26 +78,35 @@ public:
+   bool xoff;
+   bool xany;
+   bool dsrdtr;
++  bool hupcl;
++  bool lock;
++  Nan::Callback* dataCallback;
++  Nan::Callback* disconnectedCallback;
++  Nan::Callback* errorCallback;
+   SerialPortParity parity;
+   SerialPortStopBits stopBits;
+-  OpenBatonPlatformOptions* platformOptions;  
++  OpenBatonPlatformOptions* platformOptions;
++};
++
++struct ConnectionOptionsBaton {
+   char errorString[ERROR_STRING_SIZE];
++  Nan::Callback callback;
++  int fd;
++  int baudRate;
+ };
+ 
+ struct WriteBaton {
+-public:
+   int fd;
+   char* bufferData;
+   size_t bufferLength;
+   size_t offset;
+-  v8::Persistent<v8::Object> buffer;
+-  Nan::Callback* callback;
++  Nan::Persistent<v8::Object> buffer;
++  Nan::Callback callback;
+   int result;
+   char errorString[ERROR_STRING_SIZE];
+ };
+ 
+ struct QueuedWrite {
+-public:
+   uv_work_t req;
+   QueuedWrite *prev;
+   QueuedWrite *next;
+@@ -111,11 +117,11 @@ public:
+     next = this;
+ 
+     baton = 0;
+-  };
++  }
+ 
+   ~QueuedWrite() {
+     remove();
+-  };
++  }
+ 
+   void remove() {
+     prev->next = next;
+@@ -123,30 +129,27 @@ public:
+ 
+     next = this;
+     prev = this;
+-  };
++  }
+ 
+   void insert_tail(QueuedWrite *qw) {
+     qw->next = this;
+     qw->prev = this->prev;
+     qw->prev->next = qw;
+     this->prev = qw;
+-  };
++  }
+ 
+   bool empty() {
+     return next == this;
+-  };
+-
++  }
+ };
+ 
+ struct CloseBaton {
+-public:
+   int fd;
+-  Nan::Callback* callback;
++  Nan::Callback callback;
+   char errorString[ERROR_STRING_SIZE];
+ };
+ 
+ struct ListResultItem {
+-public:
+   std::string comName;
+   std::string manufacturer;
+   std::string serialNumber;
+@@ -157,14 +160,12 @@ public:
+ };
+ 
+ struct ListBaton {
+-public:
+-  Nan::Callback* callback;
++  Nan::Callback callback;
+   std::list<ListResultItem*> results;
+   char errorString[ERROR_STRING_SIZE];
+ };
+ 
+ struct FlushBaton {
+-public:
+   int fd;
+   Nan::Callback callback;
+   int result;
+@@ -172,7 +173,6 @@ public:
+ };
+ 
+ struct SetBaton {
+-public:
+   int fd;
+   Nan::Callback callback;
+   int result;
+@@ -182,15 +182,15 @@ public:
+   bool dtr;
+   bool dsr;
+   bool brk;
+-
+ };
+ 
+ struct DrainBaton {
+-public:
+   int fd;
+   Nan::Callback callback;
+   int result;
+   char errorString[ERROR_STRING_SIZE];
+ };
+ 
+-#endif
++int setup(int fd, OpenBaton *data);
++int setBaudRate(ConnectionOptionsBaton *data);
++#endif  // SRC_SERIALPORT_H_
+diff --git a/src/serialport_poller.cpp b/src/serialport_poller.cpp
+index 2ea6801..b1d2a84 100644
+--- a/src/serialport_poller.cpp
++++ b/src/serialport_poller.cpp
+@@ -3,17 +3,17 @@
+ // License to use this is the same as that of node-serialport.
+ 
+ #include <nan.h>
+-#include "serialport_poller.h"
++#include "./serialport_poller.h"
+ 
+ using namespace v8;
+ 
+-static v8::Persistent<v8::FunctionTemplate> serialportpoller_constructor;
++static Nan::Persistent<v8::FunctionTemplate> serialportpoller_constructor;
+ 
+-SerialportPoller::SerialportPoller() :  ObjectWrap() {};
++SerialportPoller::SerialportPoller() :  Nan::ObjectWrap() {}
+ SerialportPoller::~SerialportPoller() {
+   // printf("~SerialportPoller\n");
+   delete callback_;
+-};
++}
+ 
+ void _serialportReadable(uv_poll_t *req, int status, int events) {
+   SerialportPoller* sp = (SerialportPoller*) req->data;
+@@ -23,13 +23,13 @@ void _serialportReadable(uv_poll_t *req, int status, int events) {
+ }
+ 
+ void SerialportPoller::callCallback(int status) {
+-  NanScope();
++  Nan::HandleScope scope;
+   // uv_work_t* req = new uv_work_t;
+ 
+   // Call the callback to go read more data...
+ 
+-  v8::Handle<v8::Value> argv[1];
+-  if(status != 0) {
++  v8::Local<v8::Value> argv[1];
++  if (status != 0) {
+     // error handling changed in libuv, see:
+     // https://github.com/joyent/libuv/commit/3ee4d3f183331
+     #ifdef UV_ERRNO_H_
+@@ -39,9 +39,9 @@ void SerialportPoller::callCallback(int status) {
+     const char* err_string = uv_strerror(errno);
+     #endif
+     snprintf(this->errorString, sizeof(this->errorString), "Error %s on polling", err_string);
+-    argv[0] = v8::Exception::Error(NanNew<v8::String>(this->errorString));
++    argv[0] = v8::Exception::Error(Nan::New<v8::String>(this->errorString).ToLocalChecked());
+   } else {
+-    argv[0] = NanUndefined();
++    argv[0] = Nan::Undefined();
+   }
+ 
+   callback_->Call(1, argv);
+@@ -50,55 +50,52 @@ void SerialportPoller::callCallback(int status) {
+ 
+ 
+ void SerialportPoller::Init(Handle<Object> target) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   // Prepare constructor template
+-  Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
+-  tpl->SetClassName(NanNew<String>("SerialportPoller"));
++  Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
++  tpl->SetClassName(Nan::New<String>("SerialportPoller").ToLocalChecked());
+   tpl->InstanceTemplate()->SetInternalFieldCount(1);
+ 
+ 
+   // Prototype
+ 
+   // SerialportPoller.close()
+-  tpl->PrototypeTemplate()->Set(NanNew<String>("close"),
+-      NanNew<FunctionTemplate>(Close)->GetFunction());
++  Nan::SetPrototypeMethod(tpl, "close", Close);
+ 
+   // SerialportPoller.start()
+-  tpl->PrototypeTemplate()->Set(NanNew<String>("start"),
+-      NanNew<FunctionTemplate>(Start)->GetFunction());
++  Nan::SetPrototypeMethod(tpl, "start", Start);
+ 
+-  NanAssignPersistent<FunctionTemplate>(serialportpoller_constructor, tpl);
++  serialportpoller_constructor.Reset(tpl);
+ 
+-  target->Set(NanNew<String>("SerialportPoller"), tpl->GetFunction());
++  Nan::Set(target, Nan::New<String>("SerialportPoller").ToLocalChecked(), Nan::GetFunction(tpl).ToLocalChecked());
+ }
+ 
+ NAN_METHOD(SerialportPoller::New) {
+-  NanScope();
+-
+-  SerialportPoller* obj = new SerialportPoller();
+-
+-  if(!args[0]->IsInt32()) {
+-    NanThrowTypeError("First argument must be an fd");
+-    NanReturnUndefined();
++  if (!info[0]->IsInt32()) {
++    Nan::ThrowTypeError("First argument must be an fd");
++    return;
+   }
+-  obj->fd_ = args[0]->ToInt32()->Int32Value();
+ 
+-  if(!args[1]->IsFunction()) {
+-    NanThrowTypeError("Third argument must be a function");
+-    NanReturnUndefined();
++  if (!info[1]->IsFunction()) {
++    Nan::ThrowTypeError("Third argument must be a function");
++    return;
+   }
+-  obj->callback_ = new Nan::Callback(args[1].As<v8::Function>());
++
++  SerialportPoller* obj = new SerialportPoller();
++  obj->fd_ = info[0]->ToInt32()->Int32Value();
++  obj->callback_ = new Nan::Callback(info[1].As<v8::Function>());
+   // obj->callCallback();
+ 
+-  obj->Wrap(args.This());
++  obj->Wrap(info.This());
+ 
+   obj->poll_handle_.data = obj;
+-/*int r = */uv_poll_init(uv_default_loop(), &obj->poll_handle_, obj->fd_);
+-  
++
++  uv_poll_init(uv_default_loop(), &obj->poll_handle_, obj->fd_);
++
+   uv_poll_start(&obj->poll_handle_, UV_READABLE, _serialportReadable);
+ 
+-  NanReturnValue(args.This());
++  info.GetReturnValue().Set(info.This());
+ }
+ 
+ void SerialportPoller::_start() {
+@@ -111,20 +108,17 @@ void SerialportPoller::_stop() {
+ 
+ 
+ NAN_METHOD(SerialportPoller::Start) {
+-  NanScope();
+-
+-  SerialportPoller* obj = ObjectWrap::Unwrap<SerialportPoller>(args.This());
++  SerialportPoller* obj = Nan::ObjectWrap::Unwrap<SerialportPoller>(info.This());
+   obj->_start();
+-  
+-  NanReturnUndefined();
++
++  return;
+ }
+-NAN_METHOD(SerialportPoller::Close) {
+-  NanScope();
+ 
+-  SerialportPoller* obj = ObjectWrap::Unwrap<SerialportPoller>(args.This());
++NAN_METHOD(SerialportPoller::Close) {
++  SerialportPoller* obj = Nan::ObjectWrap::Unwrap<SerialportPoller>(info.This());
+   obj->_stop();
+ 
+   // DO SOMETHING!
+ 
+-  NanReturnUndefined();
++  return;
+ }
+diff --git a/src/serialport_poller.h b/src/serialport_poller.h
+index 6f0707d..4d20b07 100644
+--- a/src/serialport_poller.h
++++ b/src/serialport_poller.h
+@@ -6,30 +6,30 @@
+ #define SERIALPORT_POLLER_H
+ 
+ #include <nan.h>
+-#include "serialport.h"
++#include "./serialport.h"
+ 
+-class SerialportPoller : public node::ObjectWrap {
+-public:
+-static void Init(v8::Handle<v8::Object> target);
++class SerialportPoller : public Nan::ObjectWrap {
++ public:
++  static void Init(v8::Handle<v8::Object> target);
+ 
+-void callCallback(int status);
++  void callCallback(int status);
+ 
+-void _start();
+-void _stop();
++  void _start();
++  void _stop();
+ 
+-private:
+-SerialportPoller();
+-~SerialportPoller();
++ private:
++  SerialportPoller();
++  ~SerialportPoller();
+ 
+-static NAN_METHOD(New);
+-static NAN_METHOD(Close);
+-static NAN_METHOD(Start);
++  static NAN_METHOD(New);
++  static NAN_METHOD(Close);
++  static NAN_METHOD(Start);
+ 
+-uv_poll_t poll_handle_;
+-int fd_;
+-char errorString[ERROR_STRING_SIZE];
++  uv_poll_t poll_handle_;
++  int fd_;
++  char errorString[ERROR_STRING_SIZE];
+ 
+-Nan::Callback* callback_;
++  Nan::Callback* callback_;
+ };
+ 
+ #endif
+diff --git a/src/serialport_unix.cpp b/src/serialport_unix.cpp
+index e415516..9b5a38f 100644
+--- a/src/serialport_unix.cpp
++++ b/src/serialport_unix.cpp
+@@ -1,6 +1,6 @@
+-#ifndef WIN32
+-#include "serialport.h"
+-#include "serialport_poller.h"
++#include "./serialport.h"
++#include "./serialport_poller.h"
++#include <sys/file.h>
+ #include <unistd.h>
+ #include <fcntl.h>
+ #include <errno.h>
+@@ -21,7 +21,10 @@ Boolean lockInitialised = FALSE;
+ #if defined(MAC_OS_X_VERSION_10_4) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4)
+ #include <sys/ioctl.h>
+ #include <IOKit/serial/ioss.h>
+-#include <errno.h>
++#endif
++
++#if defined(__OpenBSD__)
++#include <sys/ioctl.h>
+ #endif
+ 
+ #if defined(__linux__)
+@@ -30,18 +33,17 @@ Boolean lockInitialised = FALSE;
+ #endif
+ 
+ struct UnixPlatformOptions : OpenBatonPlatformOptions {
+-public:
+   uint8_t vmin;
+   uint8_t vtime;
+ };
+ 
+ OpenBatonPlatformOptions* ParsePlatformOptions(const v8::Local<v8::Object>& options) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   UnixPlatformOptions* result = new UnixPlatformOptions();
+-  result->vmin = options->Get(NanNew<v8::String>("vmin"))->ToInt32()->Int32Value();
+-  result->vtime = options->Get(NanNew<v8::String>("vtime"))->ToInt32()->Int32Value();
+-  
++  result->vmin = Nan::Get(options, Nan::New<v8::String>("vmin").ToLocalChecked()).ToLocalChecked()->ToInt32()->Int32Value();
++  result->vtime = Nan::Get(options, Nan::New<v8::String>("vtime").ToLocalChecked()).ToLocalChecked()->ToInt32()->Int32Value();
++
+   return result;
+ }
+ 
+@@ -121,105 +123,128 @@ int ToDataBitsConstant(int dataBits) {
+   return -1;
+ }
+ 
+-
+-
+ void EIO_Open(uv_work_t* req) {
+-  OpenBaton* data = static_cast<OpenBaton*>(req->data);  
+-  UnixPlatformOptions* platformOptions = static_cast<UnixPlatformOptions*>(data->platformOptions);  
+-  
+-  int baudRate = ToBaudConstant(data->baudRate);
+-
+-// #if not ( defined(MAC_OS_X_VERSION_10_4) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4) )
+-//   if(baudRate == -1) {
+-//     snprintf(data->errorString, sizeof(data->errorString), "Invalid baud rate setting %d", data->baudRate);
+-//     return;
+-//   }
+-// #endif
+-
+-  int dataBits = ToDataBitsConstant(data->dataBits);
+-  if(dataBits == -1) {
+-    snprintf(data->errorString, sizeof(data->errorString), "Invalid data bits setting %d", data->dataBits);
+-    return;
+-  }
+-
++  OpenBaton* data = static_cast<OpenBaton*>(req->data);
+ 
+   int flags = (O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC | O_SYNC);
+   int fd = open(data->path, flags);
+ 
+-  if (fd == -1) {
+-    snprintf(data->errorString, sizeof(data->errorString), "Cannot open %s", data->path);
++  if (-1 == fd) {
++    snprintf(data->errorString, sizeof(data->errorString), "Error: %s, cannot open %s", strerror(errno), data->path);
+     return;
+   }
+ 
++  if (-1 == setup(fd, data)) {
++    close(fd);
++    return;
++  }
+ 
+-  // struct sigaction saio;
+-  // saio.sa_handler = sigio_handler;
+-  // sigemptyset(&saio.sa_mask);
+-  // saio.sa_flags = 0;
+-  // sigaction(SIGIO, &saio, NULL);
++  data->result = fd;
++}
+ 
+-  // //all process to receive SIGIO
+-  // fcntl(fd, F_SETOWN, getpid());
+-  // int flflags = fcntl(fd, F_GETFL);
+-  // fcntl(fd, F_SETFL, flflags | FNONBLOCK);
++int setBaudRate(ConnectionOptionsBaton *data) {
++  // lookup the standard baudrates from the table
++  int baudRate = ToBaudConstant(data->baudRate);
++  int fd = data->fd;
+ 
++  // get port options
+   struct termios options;
+-  // Set baud and other configuration.
+   tcgetattr(fd, &options);
+ 
+-// Removing check for valid BaudRates due to ticket: #140
+-// #if not ( defined(MAC_OS_X_VERSION_10_4) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4) )
+-  // Specify the baud rate
+-
+-
+-  // On linux you can alter the meaning of B38400 to mean a custom baudrate...
+-#if defined(__linux__) && defined(ASYNC_SPD_CUST)
+-  if (baudRate == -1) {
+-    struct serial_struct serinfo;
+-    serinfo.reserved_char[0] = 0;
+-    if (ioctl(fd, TIOCGSERIAL, &serinfo) != -1) {
+-      serinfo.flags &= ~ASYNC_SPD_MASK;
+-      serinfo.flags |= ASYNC_SPD_CUST;
+-      serinfo.custom_divisor = (serinfo.baud_base + (data->baudRate / 2)) / data->baudRate;
+-      if (serinfo.custom_divisor < 1)
+-        serinfo.custom_divisor = 1;
+-
+-      ioctl(fd, TIOCSSERIAL, &serinfo);
+-      ioctl(fd, TIOCGSERIAL, &serinfo);
+-      // if (serinfo.custom_divisor * rate != serinfo.baud_base) {
+-      //   warnx("actual baudrate is %d / %d = %f",
+-      //     serinfo.baud_base, serinfo.custom_divisor,
+-      //     (float)serinfo.baud_base / serinfo.custom_divisor);
+-      // }
++  // If there is a custom baud rate on linux you can do the following trick with B38400
++  #if defined(__linux__) && defined(ASYNC_SPD_CUST)
++    if (baudRate == -1) {
++      struct serial_struct serinfo;
++      serinfo.reserved_char[0] = 0;
++      if (-1 != ioctl(fd, TIOCGSERIAL, &serinfo)) {
++        serinfo.flags &= ~ASYNC_SPD_MASK;
++        serinfo.flags |= ASYNC_SPD_CUST;
++        serinfo.custom_divisor = (serinfo.baud_base + (data->baudRate / 2)) / data->baudRate;
++        if (serinfo.custom_divisor < 1)
++          serinfo.custom_divisor = 1;
++
++        ioctl(fd, TIOCSSERIAL, &serinfo);
++        ioctl(fd, TIOCGSERIAL, &serinfo);
++      } else {
++        snprintf(data->errorString, sizeof(data->errorString), "Error: %s setting custom baud rate of %d", strerror(errno), data->baudRate);
++        return -1;
++      }
++
++      // Now we use "B38400" to trigger the special baud rate.
++      baudRate = B38400;
++    }
++  #endif
++
++  // On OS X, starting with Tiger, we can set a custom baud rate with ioctl
++  #if defined(MAC_OS_X_VERSION_10_4) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4)
++    if (-1 == baudRate) {
++      speed_t speed = data->baudRate;
++      if (-1 == ioctl(fd, IOSSIOSPEED, &speed)) {
++        snprintf(data->errorString, sizeof(data->errorString), "Error: %s calling ioctl(.., IOSSIOSPEED, %ld )", strerror(errno), speed );
++        return -1;
++      } else {
++        return 1;
++      }
+     }
++  #endif
+ 
+-    // Now we use "B38400" to trigger the special baud rate.
+-    baudRate = B38400;
++  // If we have a good baud rate set it and lets go
++  if (-1 != baudRate) {
++    cfsetospeed(&options, baudRate);
++    cfsetispeed(&options, baudRate);
++    tcflush(fd, TCIFLUSH);
++    tcsetattr(fd, TCSANOW, &options);
++    return 1;
+   }
+-#endif
+ 
+-  if (baudRate != -1) {
+-    cfsetispeed(&options, baudRate);
+-    cfsetospeed(&options, baudRate);
++  snprintf(data->errorString, sizeof(data->errorString), "Error baud rate of %d is not supported on your platform", data->baudRate);
++  return -1;
++}
++
++void EIO_Update(uv_work_t* req) {
++  ConnectionOptionsBaton* data = static_cast<ConnectionOptionsBaton*>(req->data);
++  setBaudRate(data);
++}
++
++int setup(int fd, OpenBaton *data) {
++  UnixPlatformOptions* platformOptions = static_cast<UnixPlatformOptions*>(data->platformOptions);
++
++  int dataBits = ToDataBitsConstant(data->dataBits);
++  if (-1 == dataBits) {
++    snprintf(data->errorString, sizeof(data->errorString), "Invalid data bits setting %d", data->dataBits);
++    return -1;
+   }
+ 
+-// Removing check for valid BaudRates due to ticket: #140
+-// #endif
++  // Snow Leopard doesn't have O_CLOEXEC
++  if (-1 == fcntl(fd, F_SETFD, FD_CLOEXEC)) {
++    snprintf(data->errorString, sizeof(data->errorString), "Error %s Cannot open %s", strerror(errno), data->path);
++    return -1;
++  }
+ 
+-  /*
+-    IGNPAR  : ignore bytes with parity errors
+-  */
+-  options.c_iflag = IGNPAR;
++  // Copy the connection options into the ConnectionOptionsBaton to set the baud rate
++  ConnectionOptionsBaton* connectionOptions = new ConnectionOptionsBaton();
++  memset(connectionOptions, 0, sizeof(ConnectionOptionsBaton));
++  connectionOptions->fd = fd;
++  connectionOptions->baudRate = data->baudRate;
+ 
+-  /*
+-    ICRNL   : map CR to NL (otherwise a CR input on the other computer
+-              will not terminate input)
+-  */
+-  // Pulling this for now. It should be an option, however. -Giseburt
+-  //options.c_iflag = ICRNL;
++  if (-1 == setBaudRate(connectionOptions)) {
++    strncpy(data->errorString, connectionOptions->errorString, sizeof(data->errorString));
++    delete(connectionOptions);
++    return -1;
++  }
++  delete(connectionOptions);
+ 
+-  //  otherwise make device raw (no other input processing)
++  // Get port configuration for modification
++  struct termios options;
++  tcgetattr(fd, &options);
+ 
++  // IGNPAR: ignore bytes with parity errors
++  options.c_iflag = IGNPAR;
++
++  // ICRNL: map CR to NL (otherwise a CR input on the other computer will not terminate input)
++  // Future potential option
++  // options.c_iflag = ICRNL;
++  // otherwise make device raw (no other input processing)
+ 
+   // Specify data bits
+   options.c_cflag &= ~CSIZE;
+@@ -246,9 +271,7 @@ void EIO_Open(uv_work_t* req) {
+     options.c_iflag |= IXANY;
+   }
+ 
+-
+-  switch (data->parity)
+-  {
++  switch (data->parity) {
+   case SERIALPORT_PARITY_NONE:
+     options.c_cflag &= ~PARENB;
+     // options.c_cflag &= ~CSTOPB;
+@@ -271,11 +294,10 @@ void EIO_Open(uv_work_t* req) {
+     break;
+   default:
+     snprintf(data->errorString, sizeof(data->errorString), "Invalid parity setting %d", data->parity);
+-    close(fd);
+-    return;
++    return -1;
+   }
+ 
+-  switch(data->stopBits) {
++  switch (data->stopBits) {
+   case SERIALPORT_STOPBITS_ONE:
+     options.c_cflag &= ~CSTOPB;
+     break;
+@@ -284,106 +306,94 @@ void EIO_Open(uv_work_t* req) {
+     break;
+   default:
+     snprintf(data->errorString, sizeof(data->errorString), "Invalid stop bits setting %d", data->stopBits);
+-    close(fd);
+-    return;
++    return -1;
+   }
+ 
+-  options.c_cflag |= CLOCAL; //ignore status lines
+-  options.c_cflag |= CREAD;  //enable receiver
+-  options.c_cflag |= HUPCL;  //drop DTR (i.e. hangup) on close
++  options.c_cflag |= CLOCAL;  // ignore status lines
++  options.c_cflag |= CREAD;   // enable receiver
++  if (data->hupcl) {
++    options.c_cflag |= HUPCL;  // drop DTR (i.e. hangup) on close
++  }
+ 
+   // Raw output
+   options.c_oflag = 0;
+ 
+-  // ICANON makes partial lines not readable. It should be otional.
+-  // It works with ICRNL. -Giseburt
+-  options.c_lflag = 0; //ICANON;
++  // ICANON makes partial lines not readable. It should be optional.
++  // It works with ICRNL.
++  options.c_lflag = 0;  // ICANON;
+ 
+   options.c_cc[VMIN]= platformOptions->vmin;
+   options.c_cc[VTIME]= platformOptions->vtime;
+ 
+-  // removed this unneeded sleep.
+-  // sleep(1);
++  // why?
+   tcflush(fd, TCIFLUSH);
++
++  // check for error?
+   tcsetattr(fd, TCSANOW, &options);
+ 
+-  // On OS X, starting in Tiger, we can set a custom baud rate, as follows:
+-#if defined(MAC_OS_X_VERSION_10_4) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4)
+-  if (baudRate == -1) {
+-    speed_t speed = data->baudRate;
+-    if (ioctl(fd,  IOSSIOSPEED, &speed) == -1) {
+-      snprintf(data->errorString, sizeof(data->errorString), "Error %s calling ioctl( ..., IOSSIOSPEED, %ld )", strerror(errno), speed );
++  if (data->lock){
++    if (-1 == flock(fd, LOCK_EX | LOCK_NB)) {
++      snprintf(data->errorString, sizeof(data->errorString), "Error %s Cannot lock port", strerror(errno));
++      return -1;
+     }
+   }
+-#endif
+ 
+-  data->result = fd;
++  return 1;
+ }
+ 
+ void EIO_Write(uv_work_t* req) {
+   QueuedWrite* queuedWrite = static_cast<QueuedWrite*>(req->data);
+   WriteBaton* data = static_cast<WriteBaton*>(queuedWrite->baton);
++  int bytesWritten = 0;
+ 
+-  data->result = 0;
+-  errno = 0;
+-
+-  // We carefully *DON'T* break out of this loop.
+   do {
+-    if ((data->result = write(data->fd, data->bufferData + data->offset, data->bufferLength - data->offset)) == -1) {
+-      if (errno == EAGAIN || errno == EWOULDBLOCK)
+-        return;
+-
+-      // The write call might be interrupted, if it is we just try again immediately.
+-      if (errno != EINTR) {
+-        snprintf(data->errorString, sizeof(data->errorString), "Error %s calling write(...)", strerror(errno) );
+-        return;
+-      }
++    errno = 0;  // probably don't need this
++    bytesWritten = write(data->fd, data->bufferData + data->offset, data->bufferLength - data->offset);
++    if (-1 != bytesWritten) {
++      // there wasn't an error, do the math on what we actually wrote and keep writing until finished
++      data->offset += bytesWritten;
++      continue;
++    }
+ 
+-      // try again...
++    // The write call was interrupted before anything was written, try again immediately.
++    if (errno == EINTR) {
++      // why try again right away instead of in another event loop?
+       continue;
+     }
+-    // there wasn't an error, do the math on what we actually wrote...
+-    else {
+-      data->offset += data->result;
++
++    // Try again in another event loop
++    if (errno == EAGAIN || errno == EWOULDBLOCK){
++      return;
+     }
+ 
+-    // if we get there, we really don't want to loop
+-    // break;
++    // EBAD would mean we're "disconnected"
++
++    // a real error so lets bail
++    snprintf(data->errorString, sizeof(data->errorString), "Error: %s, calling write", strerror(errno));
++    return;
+   } while (data->bufferLength > data->offset);
+ }
+ 
+ void EIO_Close(uv_work_t* req) {
+   CloseBaton* data = static_cast<CloseBaton*>(req->data);
+-
+-  // printf(">>>> close fd %d\n", data->fd);
+-
+-  // fcntl(data->fd, F_SETFL, FNONBLOCK);
+-
+-  ssize_t r;
+-
+-  r = close(data->fd);
+-
+-  // printf(">>>> closed fd %d (err: %d)\n", data->fd, errno);
+-
+-  if (r && r != EBADF)
+-    snprintf(data->errorString, sizeof(data->errorString), "Unable to close fd %d, errno: %d", data->fd, errno);
++  if (-1 == close(data->fd)) {
++    snprintf(data->errorString, sizeof(data->errorString), "Error: %s, unable to close fd %d", strerror(errno), data->fd);
++  }
+ }
+ 
+ #ifdef __APPLE__
+ 
+ // Function prototypes
+ static kern_return_t FindModems(io_iterator_t *matchingServices);
+-static io_registry_entry_t GetUsbDevice(char *pathName);
++static io_service_t GetUsbDevice(io_service_t service);
+ static stDeviceListItem* GetSerialDevices();
+ 
+ 
+-static kern_return_t FindModems(io_iterator_t *matchingServices)
+-{
++static kern_return_t FindModems(io_iterator_t *matchingServices) {
+     kern_return_t     kernResult;
+     CFMutableDictionaryRef  classesToMatch;
+     classesToMatch = IOServiceMatching(kIOSerialBSDServiceValue);
+-    if (classesToMatch != NULL)
+-    {
++    if (classesToMatch != NULL) {
+         CFDictionarySetValue(classesToMatch,
+                              CFSTR(kIOSerialBSDTypeKey),
+                              CFSTR(kIOSerialBSDAllTypes));
+@@ -394,301 +404,270 @@ static kern_return_t FindModems(io_iterator_t *matchingServices)
+     return kernResult;
+ }
+ 
+-static io_registry_entry_t GetUsbDevice(char* pathName)
+-{
+-    io_registry_entry_t device = 0;
+-
+-    CFMutableDictionaryRef classesToMatch = IOServiceMatching(kIOUSBDeviceClassName);
+-    if (classesToMatch != NULL)
+-    {
+-        io_iterator_t matchingServices;
+-        kern_return_t kernResult = IOServiceGetMatchingServices(kIOMasterPortDefault, classesToMatch, &matchingServices);
+-        if (KERN_SUCCESS == kernResult)
+-        {
+-            io_service_t service;
+-            Boolean deviceFound = false;
+-
+-            while ((service = IOIteratorNext(matchingServices)) && !deviceFound)
+-            {
+-                CFStringRef bsdPathAsCFString = (CFStringRef) IORegistryEntrySearchCFProperty(service, kIOServicePlane, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, kIORegistryIterateRecursively);
+-
+-                if (bsdPathAsCFString)
+-                {
+-                    Boolean result;
+-                    char    bsdPath[MAXPATHLEN];
+-
+-                    // Convert the path from a CFString to a C (NUL-terminated)
+-                    result = CFStringGetCString(bsdPathAsCFString,
+-                                                bsdPath,
+-                                                sizeof(bsdPath),
+-                                                kCFStringEncodingUTF8);
+-
+-                    CFRelease(bsdPathAsCFString);
+-
+-                    if (result && (strcmp(bsdPath, pathName) == 0))
+-                    {
+-                        deviceFound = true;
+-                        //memset(bsdPath, 0, sizeof(bsdPath));
+-                        device = service;
+-                    }
+-                    else
+-                    {
+-                       // Release the object which are no longer needed
+-                       (void) IOObjectRelease(service);
+-                    }
+-                }
+-            }
+-            // Release the iterator.
+-            IOObjectRelease(matchingServices);
+-        }
+-    }
++static io_service_t GetUsbDevice(io_service_t service) {
++  IOReturn status;
++  io_iterator_t   iterator = 0;
++  io_service_t    device = 0;
+ 
++  if (!service) {
+     return device;
+-}
++  }
+ 
+-static void ExtractUsbInformation(stSerialDevice *serialDevice, IOUSBDeviceInterface  **deviceInterface)
+-{
+-    kern_return_t kernResult;
+-    UInt32 locationID;
+-    kernResult = (*deviceInterface)->GetLocationID(deviceInterface, &locationID);
+-    if (KERN_SUCCESS == kernResult)
+-    {
+-        snprintf(serialDevice->locationId, 11, "0x%08x", locationID);
++  status = IORegistryEntryCreateIterator(service,
++                                         kIOServicePlane,
++                                         (kIORegistryIterateParents | kIORegistryIterateRecursively),
++                                         &iterator);
++
++  if (status == kIOReturnSuccess) {
++    io_service_t currentService;
++    while ((currentService = IOIteratorNext(iterator)) && device == 0) {
++      io_name_t serviceName;
++      status = IORegistryEntryGetNameInPlane(currentService, kIOServicePlane, serviceName);
++      if (status == kIOReturnSuccess && IOObjectConformsTo(currentService, kIOUSBDeviceClassName)) {
++        device = currentService;
++      } else {
++        // Release the service object which is no longer needed
++        (void) IOObjectRelease(currentService);
++      }
+     }
+ 
+-    UInt16 vendorID;
+-    kernResult = (*deviceInterface)->GetDeviceVendor(deviceInterface, &vendorID);
+-    if (KERN_SUCCESS == kernResult)
+-    {
+-        snprintf(serialDevice->vendorId, 7, "0x%04x", vendorID);
+-    }
++    // Release the iterator
++    (void) IOObjectRelease(iterator);
++  }
+ 
+-    UInt16 productID;
+-    kernResult = (*deviceInterface)->GetDeviceProduct(deviceInterface, &productID);
+-    if (KERN_SUCCESS == kernResult)
+-    {
+-        snprintf(serialDevice->productId, 7, "0x%04x", productID);
+-    }
++  return device;
+ }
+ 
+-static stDeviceListItem* GetSerialDevices()
+-{
+-    kern_return_t kernResult;
+-    io_iterator_t serialPortIterator;
+-    char bsdPath[MAXPATHLEN];
++static void ExtractUsbInformation(stSerialDevice *serialDevice, IOUSBDeviceInterface  **deviceInterface) {
++  kern_return_t kernResult;
++  UInt32 locationID;
++  kernResult = (*deviceInterface)->GetLocationID(deviceInterface, &locationID);
++  if (KERN_SUCCESS == kernResult) {
++    snprintf(serialDevice->locationId, 11, "0x%08x", locationID);
++  }
++
++  UInt16 vendorID;
++  kernResult = (*deviceInterface)->GetDeviceVendor(deviceInterface, &vendorID);
++  if (KERN_SUCCESS == kernResult) {
++    snprintf(serialDevice->vendorId, 7, "0x%04x", vendorID);
++  }
+ 
+-    FindModems(&serialPortIterator);
++  UInt16 productID;
++  kernResult = (*deviceInterface)->GetDeviceProduct(deviceInterface, &productID);
++  if (KERN_SUCCESS == kernResult) {
++    snprintf(serialDevice->productId, 7, "0x%04x", productID);
++  }
++}
+ 
+-    io_service_t modemService;
+-    kernResult = KERN_FAILURE;
+-    Boolean modemFound = false;
++static stDeviceListItem* GetSerialDevices() {
++  kern_return_t kernResult;
++  io_iterator_t serialPortIterator;
++  char bsdPath[MAXPATHLEN];
++
++  FindModems(&serialPortIterator);
++
++  io_service_t modemService;
++  kernResult = KERN_FAILURE;
++  Boolean modemFound = false;
++
++  // Initialize the returned path
++  *bsdPath = '\0';
++
++  stDeviceListItem* devices = NULL;
++  stDeviceListItem* lastDevice = NULL;
++  int length = 0;
++
++  while ((modemService = IOIteratorNext(serialPortIterator))) {
++    CFTypeRef bsdPathAsCFString;
++    bsdPathAsCFString = IORegistryEntrySearchCFProperty(
++      modemService,
++      kIOServicePlane,
++      CFSTR(kIOCalloutDeviceKey),
++      kCFAllocatorDefault,
++      kIORegistryIterateRecursively);
++
++    if (bsdPathAsCFString) {
++      Boolean result;
++
++      // Convert the path from a CFString to a C (NUL-terminated)
++      result = CFStringGetCString((CFStringRef) bsdPathAsCFString,
++                    bsdPath,
++                    sizeof(bsdPath),
++                    kCFStringEncodingUTF8);
++      CFRelease(bsdPathAsCFString);
++
++      if (result) {
++        stDeviceListItem *deviceListItem = (stDeviceListItem*) malloc(sizeof(stDeviceListItem));
++        stSerialDevice *serialDevice = &(deviceListItem->value);
++        strcpy(serialDevice->port, bsdPath);
++        memset(serialDevice->locationId, 0, sizeof(serialDevice->locationId));
++        memset(serialDevice->vendorId, 0, sizeof(serialDevice->vendorId));
++        memset(serialDevice->productId, 0, sizeof(serialDevice->productId));
++        serialDevice->manufacturer[0] = '\0';
++        serialDevice->serialNumber[0] = '\0';
++        deviceListItem->next = NULL;
++        deviceListItem->length = &length;
++
++        if (devices == NULL) {
++          devices = deviceListItem;
++        } else {
++          lastDevice->next = deviceListItem;
++        }
+ 
+-    // Initialize the returned path
+-    *bsdPath = '\0';
++        lastDevice = deviceListItem;
++        length++;
+ 
+-    stDeviceListItem* devices = NULL;
+-    stDeviceListItem* lastDevice = NULL;
+-    int length = 0;
++        modemFound = true;
++        kernResult = KERN_SUCCESS;
+ 
+-    while ((modemService = IOIteratorNext(serialPortIterator)))
+-    {
+-        CFTypeRef bsdPathAsCFString;
++        uv_mutex_lock(&list_mutex);
+ 
+-        bsdPathAsCFString = IORegistryEntrySearchCFProperty(modemService, kIOServicePlane, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, kIORegistryIterateRecursively);
++        io_service_t device = GetUsbDevice(modemService);
+ 
+-        if (bsdPathAsCFString)
+-        {
++        if (device) {
++          CFStringRef manufacturerAsCFString = (CFStringRef) IORegistryEntryCreateCFProperty(device,
++                      CFSTR(kUSBVendorString),
++                      kCFAllocatorDefault,
++                      0);
++
++          if (manufacturerAsCFString) {
+             Boolean result;
++            char    manufacturer[MAXPATHLEN];
++
++            // Convert from a CFString to a C (NUL-terminated)
++            result = CFStringGetCString(manufacturerAsCFString,
++                          manufacturer,
++                          sizeof(manufacturer),
++                          kCFStringEncodingUTF8);
++
++            if (result) {
++              strcpy(serialDevice->manufacturer, manufacturer);
++            }
+ 
+-            // Convert the path from a CFString to a C (NUL-terminated)
+-
+-            result = CFStringGetCString((CFStringRef) bsdPathAsCFString,
+-                                        bsdPath,
+-                                        sizeof(bsdPath),
+-                                        kCFStringEncodingUTF8);
+-            CFRelease(bsdPathAsCFString);
+-
+-            if (result)
+-            {
+-                stDeviceListItem *deviceListItem = (stDeviceListItem*) malloc(sizeof(stDeviceListItem));
+-                stSerialDevice *serialDevice = &(deviceListItem->value);
+-                strcpy(serialDevice->port, bsdPath);
+-                memset(serialDevice->locationId, 0, sizeof(serialDevice->locationId));
+-                memset(serialDevice->vendorId, 0, sizeof(serialDevice->vendorId));
+-                memset(serialDevice->productId, 0, sizeof(serialDevice->productId));
+-                serialDevice->manufacturer[0] = '\0';
+-                serialDevice->serialNumber[0] = '\0';
+-                deviceListItem->next = NULL;
+-                deviceListItem->length = &length;
+-
+-                if (devices == NULL) {
+-                    devices = deviceListItem;
+-                }
+-                else {
+-                    lastDevice->next = deviceListItem;
+-                }
+-
+-                lastDevice = deviceListItem;
+-                length++;
+-
+-                modemFound = true;
+-                kernResult = KERN_SUCCESS;
+-
+-                uv_mutex_lock(&list_mutex);
+-
+-                io_registry_entry_t device = GetUsbDevice(bsdPath);
+-
+-                if (device) {
+-                    CFStringRef manufacturerAsCFString = (CFStringRef) IORegistryEntrySearchCFProperty(device,
+-                                          kIOServicePlane,
+-                                          CFSTR(kUSBVendorString),
+-                                          kCFAllocatorDefault,
+-                                          kIORegistryIterateRecursively);
+-
+-                    if (manufacturerAsCFString)
+-                    {
+-                        Boolean result;
+-                        char    manufacturer[MAXPATHLEN];
+-
+-                        // Convert from a CFString to a C (NUL-terminated)
+-                        result = CFStringGetCString(manufacturerAsCFString,
+-                                                    manufacturer,
+-                                                    sizeof(manufacturer),
+-                                                    kCFStringEncodingUTF8);
+-
+-                        if (result) {
+-                          strcpy(serialDevice->manufacturer, manufacturer);
+-                        }
+-
+-                        CFRelease(manufacturerAsCFString);
+-                    }
+-
+-                    CFStringRef serialNumberAsCFString = (CFStringRef) IORegistryEntrySearchCFProperty(device,
+-                                          kIOServicePlane,
+-                                          CFSTR(kUSBSerialNumberString),
+-                                          kCFAllocatorDefault,
+-                                          kIORegistryIterateRecursively);
+-
+-                    if (serialNumberAsCFString)
+-                    {
+-                        Boolean result;
+-                        char    serialNumber[MAXPATHLEN];
+-
+-                        // Convert from a CFString to a C (NUL-terminated)
+-                        result = CFStringGetCString(serialNumberAsCFString,
+-                                                    serialNumber,
+-                                                    sizeof(serialNumber),
+-                                                    kCFStringEncodingUTF8);
+-
+-                        if (result) {
+-                          strcpy(serialDevice->serialNumber, serialNumber);
+-                        }
+-
+-                        CFRelease(serialNumberAsCFString);
+-                    }
+-
+-                    IOCFPlugInInterface **plugInInterface = NULL;
+-                    SInt32        score;
+-                    HRESULT       res;
+-
+-                    IOUSBDeviceInterface  **deviceInterface = NULL;
+-
+-                    kernResult = IOCreatePlugInInterfaceForService(device, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID,
+-                                                           &plugInInterface, &score);
+-
+-                    if ((kIOReturnSuccess != kernResult) || !plugInInterface) {
+-                        continue;
+-                    }
+-
+-                    // Use the plugin interface to retrieve the device interface.
+-                    res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID),
+-                                                             (LPVOID*) &deviceInterface);
+-
+-                    // Now done with the plugin interface.
+-                    (*plugInInterface)->Release(plugInInterface);
+-
+-                    if (res || deviceInterface == NULL) {
+-                        continue;
+-                    }
+-
+-                    // Extract the desired Information
+-                    ExtractUsbInformation(serialDevice, deviceInterface);
+-
+-                    // Release the Interface
+-                    (*deviceInterface)->Release(deviceInterface);
++            CFRelease(manufacturerAsCFString);
++          }
+ 
+-                    // Release the device
+-                    (void) IOObjectRelease(device);
+-                }
++          CFStringRef serialNumberAsCFString = (CFStringRef) IORegistryEntrySearchCFProperty(device,
++                      kIOServicePlane,
++                      CFSTR(kUSBSerialNumberString),
++                      kCFAllocatorDefault,
++                      kIORegistryIterateRecursively);
+ 
+-                uv_mutex_unlock(&list_mutex);
++          if (serialNumberAsCFString) {
++            Boolean result;
++            char    serialNumber[MAXPATHLEN];
++
++            // Convert from a CFString to a C (NUL-terminated)
++            result = CFStringGetCString(serialNumberAsCFString,
++                          serialNumber,
++                          sizeof(serialNumber),
++                          kCFStringEncodingUTF8);
++
++            if (result) {
++              strcpy(serialDevice->serialNumber, serialNumber);
+             }
++
++            CFRelease(serialNumberAsCFString);
++          }
++
++          IOCFPlugInInterface **plugInInterface = NULL;
++          SInt32        score;
++          HRESULT       res;
++
++          IOUSBDeviceInterface  **deviceInterface = NULL;
++
++          kernResult = IOCreatePlugInInterfaceForService(device, kIOUSBDeviceUserClientTypeID, kIOCFPlugInInterfaceID,
++                               &plugInInterface, &score);
++
++          if ((kIOReturnSuccess != kernResult) || !plugInInterface) {
++            continue;
++          }
++
++          // Use the plugin interface to retrieve the device interface.
++          res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID),
++                               (LPVOID*) &deviceInterface);
++
++          // Now done with the plugin interface.
++          (*plugInInterface)->Release(plugInInterface);
++
++          if (res || deviceInterface == NULL) {
++            continue;
++          }
++
++          // Extract the desired Information
++          ExtractUsbInformation(serialDevice, deviceInterface);
++
++          // Release the Interface
++          (*deviceInterface)->Release(deviceInterface);
++
++          // Release the device
++          (void) IOObjectRelease(device);
+         }
+ 
+-        // Release the io_service_t now that we are done with it.
+-        (void) IOObjectRelease(modemService);
++        uv_mutex_unlock(&list_mutex);
++      }
+     }
+ 
+-    IOObjectRelease(serialPortIterator);  // Release the iterator.
++    // Release the io_service_t now that we are done with it.
++    (void) IOObjectRelease(modemService);
++  }
++
++  IOObjectRelease(serialPortIterator);  // Release the iterator.
+ 
+-    return devices;
++  return devices;
+ }
+ 
+ #endif
+ 
+ void EIO_List(uv_work_t* req) {
+-  // This code exists in javascript for unix platforms
++  ListBaton* data = static_cast<ListBaton*>(req->data);
+ 
+-#ifdef __APPLE__
+-  if(!lockInitialised)
+-  {
++#ifndef __APPLE__
++  // This code exists in javascript for other unix platforms
++  snprintf(data->errorString, sizeof(data->errorString), "List is not Implemented");
++  return;
++# else
++  if (!lockInitialised) {
+     uv_mutex_init(&list_mutex);
+     lockInitialised = TRUE;
+   }
+ 
+-  ListBaton* data = static_cast<ListBaton*>(req->data);
+-
+   stDeviceListItem* devices = GetSerialDevices();
+-
+-  if (*(devices->length) > 0)
+-  {
++  if (*(devices->length) > 0) {
+     stDeviceListItem* next = devices;
+ 
+     for (int i = 0, len = *(devices->length); i < len; i++) {
+-        stSerialDevice device = (* next).value;
++      stSerialDevice device = (* next).value;
+ 
+-        ListResultItem* resultItem = new ListResultItem();
+-        resultItem->comName = device.port;
++      ListResultItem* resultItem = new ListResultItem();
++      resultItem->comName = device.port;
+ 
+-        if (device.locationId != NULL) {
+-          resultItem->locationId = device.locationId;
+-        }
+-        if (device.vendorId != NULL) {
+-          resultItem->vendorId = device.vendorId;
+-        }
+-        if (device.productId != NULL) {
+-          resultItem->productId = device.productId;
+-        }
+-        if (device.manufacturer != NULL) {
+-          resultItem->manufacturer = device.manufacturer;
+-        }
+-        if (device.serialNumber != NULL) {
+-          resultItem->serialNumber = device.serialNumber;
+-        }
+-        data->results.push_back(resultItem);
++      if (*device.locationId) {
++        resultItem->locationId = device.locationId;
++      }
++      if (*device.vendorId) {
++        resultItem->vendorId = device.vendorId;
++      }
++      if (*device.productId) {
++        resultItem->productId = device.productId;
++      }
++      if (*device.manufacturer) {
++        resultItem->manufacturer = device.manufacturer;
++      }
++      if (*device.serialNumber) {
++        resultItem->serialNumber = device.serialNumber;
++      }
++      data->results.push_back(resultItem);
+ 
+-        stDeviceListItem* current = next;
++      stDeviceListItem* current = next;
+ 
+-        if (next->next != NULL)
+-        {
+-          next = next->next;
+-        }
++      if (next->next != NULL) {
++        next = next->next;
++      }
+ 
+-        free(current);
++      free(current);
+     }
+-
+   }
+-
+ #endif
+ }
+ 
+@@ -702,7 +681,7 @@ void EIO_Set(uv_work_t* req) {
+   SetBaton* data = static_cast<SetBaton*>(req->data);
+ 
+   int bits;
+-  ioctl( data->fd, TIOCMGET, &bits );
++  ioctl(data->fd, TIOCMGET, &bits);
+ 
+   bits &= ~(TIOCM_RTS | TIOCM_CTS | TIOCM_DTR | TIOCM_DSR);
+ 
+@@ -722,20 +701,29 @@ void EIO_Set(uv_work_t* req) {
+     bits |= TIOCM_DSR;
+   }
+ 
+-  //todo check these returns
++  int result = 0;
+   if (data->brk) {
+-    ioctl(data->fd, TIOCSBRK, NULL);
+-  }else{
+-    ioctl(data->fd, TIOCCBRK, NULL);
++    result = ioctl(data->fd, TIOCSBRK, NULL);
++  } else {
++    result = ioctl(data->fd, TIOCCBRK, NULL);
++  }
++
++  if (-1 == result) {
++    snprintf(data->errorString, sizeof(data->errorString), "Error: %s, cannot drain", strerror(errno));
++    return;
+   }
+ 
+-  data->result = ioctl(data->fd, TIOCMSET, &bits );
++  if (-1 == ioctl(data->fd, TIOCMSET, &bits)) {
++    snprintf(data->errorString, sizeof(data->errorString), "Error: %s, cannot drain", strerror(errno));
++    return;
++  }
+ }
+ 
+ void EIO_Drain(uv_work_t* req) {
+   DrainBaton* data = static_cast<DrainBaton*>(req->data);
+ 
+-  data->result = tcdrain(data->fd);
++  if (-1 == tcdrain(data->fd)) {
++    snprintf(data->errorString, sizeof(data->errorString), "Error: %s, cannot drain", strerror(errno));
++    return;
++  }
+ }
+-
+-#endif
+diff --git a/src/serialport_win.cpp b/src/serialport_win.cpp
+index 1fce76d..0440da9 100644
+--- a/src/serialport_win.cpp
++++ b/src/serialport_win.cpp
+@@ -1,49 +1,46 @@
+-#include "serialport.h"
+-#include <list>
+-#include "win/disphelper.h"
+-
+-#include "win/stdafx.h"
+-#include "win/enumser.h"
+-
+ #include <nan.h>
++#include <list>
++#include <vector>
++#include "./serialport.h"
++#include <string.h>
++#include <windows.h>
++#include <Setupapi.h>
++#include <devguid.h>
++#pragma comment (lib, "setupapi.lib")
+ 
+ #ifdef WIN32
+ 
+ #define MAX_BUFFER_SIZE 1000
+ 
+-
+-struct WindowsPlatformOptions : OpenBatonPlatformOptions
+-{
++struct WindowsPlatformOptions : OpenBatonPlatformOptions {
+ };
+ 
+-OpenBatonPlatformOptions* ParsePlatformOptions(const v8::Local<v8::Object>& options){
++OpenBatonPlatformOptions* ParsePlatformOptions(const v8::Local<v8::Object>& options) {
+   // currently none
+   return new WindowsPlatformOptions();
+ }
+ 
+-
+ // Declare type of pointer to CancelIoEx function
+ typedef BOOL (WINAPI *CancelIoExType)(HANDLE hFile, LPOVERLAPPED lpOverlapped);
+ 
+-
+ std::list<int> g_closingHandles;
+ int bufferSize;
+ void ErrorCodeToString(const char* prefix, int errorCode, char *errorStr) {
+-  switch(errorCode) {
++  switch (errorCode) {
+   case ERROR_FILE_NOT_FOUND:
+-    _snprintf(errorStr, ERROR_STRING_SIZE, "%s: File not found", prefix);
++    _snprintf_s(errorStr, ERROR_STRING_SIZE, _TRUNCATE, "%s: File not found", prefix);
+     break;
+   case ERROR_INVALID_HANDLE:
+-    _snprintf(errorStr, ERROR_STRING_SIZE, "%s: Invalid handle", prefix);
++    _snprintf_s(errorStr, ERROR_STRING_SIZE, _TRUNCATE, "%s: Invalid handle", prefix);
+     break;
+   case ERROR_ACCESS_DENIED:
+-    _snprintf(errorStr, ERROR_STRING_SIZE, "%s: Access denied", prefix);
++    _snprintf_s(errorStr, ERROR_STRING_SIZE, _TRUNCATE, "%s: Access denied", prefix);
+     break;
+   case ERROR_OPERATION_ABORTED:
+-    _snprintf(errorStr, ERROR_STRING_SIZE, "%s: operation aborted", prefix);
++    _snprintf_s(errorStr, ERROR_STRING_SIZE, _TRUNCATE, "%s: operation aborted", prefix);
+     break;
+   default:
+-    _snprintf(errorStr, ERROR_STRING_SIZE, "%s: Unknown error code %d", prefix, errorCode);
++    _snprintf_s(errorStr, ERROR_STRING_SIZE, _TRUNCATE, "%s: Unknown error code %d", prefix, errorCode);
+     break;
+   }
+ }
+@@ -51,44 +48,72 @@ void ErrorCodeToString(const char* prefix, int errorCode, char *errorStr) {
+ void EIO_Open(uv_work_t* req) {
+   OpenBaton* data = static_cast<OpenBaton*>(req->data);
+ 
++  char originalPath[1024];
++  strncpy_s(originalPath, sizeof(originalPath), data->path, _TRUNCATE);
+   // data->path is char[1024] but on Windows it has the form "COMx\0" or "COMxx\0"
+   // We want to prepend "\\\\.\\" to it before we call CreateFile
+   strncpy(data->path + 20, data->path, 10);
+   strncpy(data->path, "\\\\.\\", 4);
+   strncpy(data->path + 4, data->path + 20, 10);
+ 
++  int shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
++  if (data->lock) {
++    shareMode = 0;
++  }
++
+   HANDLE file = CreateFile(
+     data->path,
+     GENERIC_READ | GENERIC_WRITE,
+-    0,
++    shareMode,  // dwShareMode 0 Prevents other processes from opening if they request delete, read, or write access
+     NULL,
+     OPEN_EXISTING,
+-    FILE_FLAG_OVERLAPPED,
+-    NULL);
++    FILE_FLAG_OVERLAPPED,  // allows for reading and writing at the same time and sets the handle for asynchronous I/O
++    NULL
++  );
++
+   if (file == INVALID_HANDLE_VALUE) {
+     DWORD errorCode = GetLastError();
+     char temp[100];
+-    _snprintf(temp, sizeof(temp), "Opening %s", data->path);
++    _snprintf_s(temp, sizeof(temp), _TRUNCATE, "Opening %s", originalPath);
+     ErrorCodeToString(temp, errorCode, data->errorString);
+     return;
+   }
+ 
+   bufferSize = data->bufferSize;
+-  if(bufferSize > MAX_BUFFER_SIZE) {
++  if (bufferSize > MAX_BUFFER_SIZE) {
+     bufferSize = MAX_BUFFER_SIZE;
+   }
+ 
+   DCB dcb = { 0 };
++  SecureZeroMemory(&dcb, sizeof(DCB));
+   dcb.DCBlength = sizeof(DCB);
+-  if(!BuildCommDCB("9600,n,8,1", &dcb)) {
+-    ErrorCodeToString("BuildCommDCB", GetLastError(), data->errorString);
++
++  if (!GetCommState(file, &dcb)) {
++    ErrorCodeToString("Open (GetCommState)", GetLastError(), data->errorString);
++    CloseHandle(file);
+     return;
+   }
+ 
++  if (data->hupcl) {
++    dcb.fDtrControl = DTR_CONTROL_ENABLE;
++  } else {
++    dcb.fDtrControl = DTR_CONTROL_DISABLE;  // disable DTR to avoid reset
++  }
++
++  dcb.Parity = NOPARITY;
++  dcb.ByteSize = 8;
++  dcb.StopBits = ONESTOPBIT;
++  dcb.fInX = FALSE;
++  dcb.fOutX = FALSE;
++  dcb.fOutxDsrFlow = FALSE;
++  dcb.fOutxCtsFlow = FALSE;
++  dcb.fRtsControl = RTS_CONTROL_ENABLE;
++
+   dcb.fBinary = true;
+   dcb.BaudRate = data->baudRate;
+   dcb.ByteSize = data->dataBits;
+-  switch(data->parity) {
++
++  switch (data->parity) {
+   case SERIALPORT_PARITY_NONE:
+     dcb.Parity = NOPARITY;
+     break;
+@@ -105,7 +130,8 @@ void EIO_Open(uv_work_t* req) {
+     dcb.Parity = SPACEPARITY;
+     break;
+   }
+-  switch(data->stopBits) {
++
++  switch (data->stopBits) {
+   case SERIALPORT_STOPBITS_ONE:
+     dcb.StopBits = ONESTOPBIT;
+     break;
+@@ -117,14 +143,15 @@ void EIO_Open(uv_work_t* req) {
+     break;
+   }
+ 
+-  if(!SetCommState(file, &dcb)) {
+-    ErrorCodeToString("SetCommState", GetLastError(), data->errorString);
++  if (!SetCommState(file, &dcb)) {
++    ErrorCodeToString("Open (SetCommState)", GetLastError(), data->errorString);
++    CloseHandle(file);
+     return;
+   }
+ 
+   // Set the com port read/write timeouts
+   DWORD serialBitsPerByte = 8/*std data bits*/ + 1/*start bit*/;
+-  serialBitsPerByte += (data->parity   == SERIALPORT_PARITY_NONE ) ? 0 : 1;
++  serialBitsPerByte += (data->parity == SERIALPORT_PARITY_NONE) ? 0 : 1;
+   serialBitsPerByte += (data->stopBits == SERIALPORT_STOPBITS_ONE) ? 1 : 2;
+   DWORD msPerByte = (data->baudRate > 0) ?
+                     ((1000 * serialBitsPerByte + data->baudRate - 1) / data->baudRate) :
+@@ -133,13 +160,14 @@ void EIO_Open(uv_work_t* req) {
+     msPerByte = 1;
+   }
+   COMMTIMEOUTS commTimeouts = {0};
+-  commTimeouts.ReadIntervalTimeout = msPerByte; // Minimize chance of concatenating of separate serial port packets on read
+-  commTimeouts.ReadTotalTimeoutMultiplier  = 0; // Do not allow big read timeout when big read buffer used
+-  commTimeouts.ReadTotalTimeoutConstant    = 1000; // Total read timeout (period of read loop)
+-  commTimeouts.WriteTotalTimeoutConstant   = 1000; // Const part of write timeout
+-  commTimeouts.WriteTotalTimeoutMultiplier = msPerByte; // Variable part of write timeout (per byte)
+-  if(!SetCommTimeouts(file, &commTimeouts)) {
+-    ErrorCodeToString("SetCommTimeouts", GetLastError(), data->errorString);
++  commTimeouts.ReadIntervalTimeout = msPerByte;  // Minimize chance of concatenating of separate serial port packets on read
++  commTimeouts.ReadTotalTimeoutMultiplier = 0;  // Do not allow big read timeout when big read buffer used
++  commTimeouts.ReadTotalTimeoutConstant = 1000;  // Total read timeout (period of read loop)
++  commTimeouts.WriteTotalTimeoutConstant = 1000;  // Const part of write timeout
++  commTimeouts.WriteTotalTimeoutMultiplier = msPerByte;  // Variable part of write timeout (per byte)
++  if (!SetCommTimeouts(file, &commTimeouts)) {
++    ErrorCodeToString("Open (SetCommTimeouts)", GetLastError(), data->errorString);
++    CloseHandle(file);
+     return;
+   }
+ 
+@@ -151,7 +179,6 @@ void EIO_Open(uv_work_t* req) {
+ }
+ 
+ struct WatchPortBaton {
+-public:
+   HANDLE fd;
+   DWORD bytesRead;
+   char buffer[MAX_BUFFER_SIZE];
+@@ -163,24 +190,44 @@ public:
+   Nan::Callback* disconnectedCallback;
+ };
+ 
++void EIO_Update(uv_work_t* req) {
++  ConnectionOptionsBaton* data = static_cast<ConnectionOptionsBaton*>(req->data);
++
++  DCB dcb = { 0 };
++  SecureZeroMemory(&dcb, sizeof(DCB));
++  dcb.DCBlength = sizeof(DCB);
++
++  if (!GetCommState((HANDLE)data->fd, &dcb)) {
++    ErrorCodeToString("GetCommState", GetLastError(), data->errorString);
++    return;
++  }
++
++  dcb.BaudRate = data->baudRate;
++
++  if (!SetCommState((HANDLE)data->fd, &dcb)) {
++    ErrorCodeToString("SetCommState", GetLastError(), data->errorString);
++    return;
++  }
++}
++
+ void EIO_Set(uv_work_t* req) {
+   SetBaton* data = static_cast<SetBaton*>(req->data);
+ 
+   if (data->rts) {
+     EscapeCommFunction((HANDLE)data->fd, SETRTS);
+-  }else{
++  } else {
+     EscapeCommFunction((HANDLE)data->fd, CLRRTS);
+   }
+ 
+   if (data->dtr) {
+     EscapeCommFunction((HANDLE)data->fd, SETDTR);
+-  }else{
++  } else {
+     EscapeCommFunction((HANDLE)data->fd, CLRDTR);
+   }
+ 
+   if (data->brk) {
+     EscapeCommFunction((HANDLE)data->fd, SETBREAK);
+-  }else{
++  } else {
+     EscapeCommFunction((HANDLE)data->fd, CLRBREAK);
+   }
+ 
+@@ -188,8 +235,8 @@ void EIO_Set(uv_work_t* req) {
+ 
+   GetCommMask((HANDLE)data->fd, &bits);
+ 
+-  bits &= ~( EV_CTS | EV_DSR);
+-  
++  bits &= ~(EV_CTS | EV_DSR);
++
+   if (data->cts) {
+     bits |= EV_CTS;
+   }
+@@ -198,7 +245,10 @@ void EIO_Set(uv_work_t* req) {
+     bits |= EV_DSR;
+   }
+ 
+-  data->result = SetCommMask((HANDLE)data->fd, bits);
++  if (!SetCommMask((HANDLE)data->fd, bits)) {
++    ErrorCodeToString("Setting options on COM port (SetCommMask)", GetLastError(), data->errorString);
++    return;
++  }
+ }
+ 
+ 
+@@ -212,21 +262,22 @@ void EIO_WatchPort(uv_work_t* req) {
+   // on the same handle (i.e. ReadFile and WriteFile)
+   HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+ 
+-  while(true) {
++  while (true) {
+     OVERLAPPED ov = {0};
+     ov.hEvent = hEvent;
+ 
+     // Start read operation - synchrounous or asynchronous
+     DWORD bytesReadSync = 0;
+-    if(!ReadFile((HANDLE)data->fd, data->buffer, bufferSize, &bytesReadSync, &ov)) {
++    if (!ReadFile((HANDLE)data->fd, data->buffer, bufferSize, &bytesReadSync, &ov)) {
+       data->errorCode = GetLastError();
+-      if(data->errorCode != ERROR_IO_PENDING) {
++      if (data->errorCode != ERROR_IO_PENDING) {
+         // Read operation error
+-        if(data->errorCode == ERROR_OPERATION_ABORTED) {
++        if (data->errorCode == ERROR_OPERATION_ABORTED) {
+           data->disconnected = true;
+-        }
+-        else {
++        } else {
+           ErrorCodeToString("Reading from COM port (ReadFile)", data->errorCode, data->errorString);
++          CloseHandle(hEvent);
++          return;
+         }
+         break;
+       }
+@@ -237,29 +288,28 @@ void EIO_WatchPort(uv_work_t* req) {
+ 
+       // Wait for async read operation completion or timeout
+       DWORD bytesReadAsync = 0;
+-      if(!GetOverlappedResult((HANDLE)data->fd, &ov, &bytesReadAsync, TRUE)) {
++      if (!GetOverlappedResult((HANDLE)data->fd, &ov, &bytesReadAsync, TRUE)) {
+         // Read operation error
+         data->errorCode = GetLastError();
+-        if(data->errorCode == ERROR_OPERATION_ABORTED) {
++        if (data->errorCode == ERROR_OPERATION_ABORTED) {
+           data->disconnected = true;
+-        }
+-        else {
++        } else {
+           ErrorCodeToString("Reading from COM port (GetOverlappedResult)", data->errorCode, data->errorString);
++          CloseHandle(hEvent);
++          return;
+         }
+         break;
+-      }
+-      else {
++      } else {
+         // Read operation completed asynchronously
+         data->bytesRead = bytesReadAsync;
+       }
+-    }
+-    else {
++    } else {
+       // Read operation completed synchronously
+       data->bytesRead = bytesReadSync;
+     }
+ 
+     // Return data received if any
+-    if(data->bytesRead > 0) {
++    if (data->bytesRead > 0) {
+       break;
+     }
+   }
+@@ -268,8 +318,8 @@ void EIO_WatchPort(uv_work_t* req) {
+ }
+ 
+ bool IsClosingHandle(int fd) {
+-  for(std::list<int>::iterator it=g_closingHandles.begin(); it!=g_closingHandles.end(); ++it) {
+-    if(fd == *it) {
++  for (std::list<int>::iterator it = g_closingHandles.begin(); it != g_closingHandles.end(); ++it) {
++    if (fd == *it) {
+       g_closingHandles.remove(fd);
+       return true;
+     }
+@@ -283,36 +333,50 @@ void DisposeWatchPortCallbacks(WatchPortBaton* data) {
+   delete data->disconnectedCallback;
+ }
+ 
++// FinalizerCallback will prevent WatchPortBaton::buffer from getting
++// collected by gc while finalizing v8::ArrayBuffer. The buffer will
++// get cleaned up through this callback.
++static void FinalizerCallback(char* data, void* hint) {
++  uv_work_t* req = reinterpret_cast<uv_work_t*>(hint);
++  WatchPortBaton* wpb = static_cast<WatchPortBaton*>(req->data);
++  delete wpb;
++  delete req;
++}
++
+ void EIO_AfterWatchPort(uv_work_t* req) {
+-  NanScope();
++  Nan::HandleScope scope;
+ 
+   WatchPortBaton* data = static_cast<WatchPortBaton*>(req->data);
+-  if(data->disconnected) {
++  if (data->disconnected) {
+     data->disconnectedCallback->Call(0, NULL);
+     DisposeWatchPortCallbacks(data);
+     goto cleanup;
+   }
+ 
+-  if(data->bytesRead > 0) {
+-    v8::Handle<v8::Value> argv[1];
+-    argv[0] = NanNewBufferHandle(data->buffer, data->bytesRead);
++  bool skipCleanup = false;
++  if (data->bytesRead > 0) {
++    v8::Local<v8::Value> argv[1];
++    argv[0] = Nan::NewBuffer(data->buffer, data->bytesRead, FinalizerCallback, req).ToLocalChecked();
++    skipCleanup = true;
+     data->dataCallback->Call(1, argv);
+-  } else if(data->errorCode > 0) {
+-    if(data->errorCode == ERROR_INVALID_HANDLE && IsClosingHandle((int)data->fd)) {
++  } else if (data->errorCode > 0) {
++    if (data->errorCode == ERROR_INVALID_HANDLE && IsClosingHandle((int)data->fd)) {
+       DisposeWatchPortCallbacks(data);
+       goto cleanup;
+     } else {
+-      v8::Handle<v8::Value> argv[1];
+-      argv[0] = NanError(data->errorString);
++      v8::Local<v8::Value> argv[1];
++      argv[0] = Nan::Error(data->errorString);
+       data->errorCallback->Call(1, argv);
+-      Sleep(100); // prevent the errors from occurring too fast
++      Sleep(100);  // prevent the errors from occurring too fast
+     }
+   }
+   AfterOpenSuccess((int)data->fd, data->dataCallback, data->disconnectedCallback, data->errorCallback);
+ 
+ cleanup:
+-  delete data;
+-  delete req;
++  if (!skipCleanup) {
++    delete data;
++    delete req;
++  }
+ }
+ 
+ void AfterOpenSuccess(int fd, Nan::Callback* dataCallback, Nan::Callback* disconnectedCallback, Nan::Callback* errorCallback) {
+@@ -335,47 +399,41 @@ void EIO_Write(uv_work_t* req) {
+   data->result = 0;
+ 
+   do {
+-	  OVERLAPPED ov = {0};
+-	  // Event used by GetOverlappedResult(..., TRUE) to wait for outgoing data or timeout
+-	  // Event MUST be used if program has several simultaneous asynchronous operations
+-	  // on the same handle (i.e. ReadFile and WriteFile)
+-	  ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+-
+-	  // Start write operation - synchrounous or asynchronous
+-	  DWORD bytesWrittenSync = 0;
+-	  if(!WriteFile((HANDLE)data->fd, data->bufferData, static_cast<DWORD>(data->bufferLength), &bytesWrittenSync, &ov)) {
+-		DWORD lastError = GetLastError();
+-		if(lastError != ERROR_IO_PENDING) {
+-		  // Write operation error
+-		  ErrorCodeToString("Writing to COM port (WriteFile)", lastError, data->errorString);
+-		}
+-		else {
+-		  // Write operation is asynchronous and is pending
+-		  // We MUST wait for operation completion before deallocation of OVERLAPPED struct
+-		  // or write data buffer
+-
+-		  // Wait for async write operation completion or timeout
+-		  DWORD bytesWrittenAsync = 0;
+-		  if(!GetOverlappedResult((HANDLE)data->fd, &ov, &bytesWrittenAsync, TRUE)) {
+-			// Write operation error
+-			DWORD lastError = GetLastError();
+-			ErrorCodeToString("Writing to COM port (GetOverlappedResult)", lastError, data->errorString);
+-		  }
+-		  else {
+-			// Write operation completed asynchronously
+-			data->result = bytesWrittenAsync;
+-		  }
+-		}
+-	  }
+-	  else {
+-		// Write operation completed synchronously
+-		data->result = bytesWrittenSync;
+-	  }
+-
+-	  data->offset += data->result;
+-	  CloseHandle(ov.hEvent);
++    OVERLAPPED ov = {0};
++    // Event used by GetOverlappedResult(..., TRUE) to wait for outgoing data or timeout
++    // Event MUST be used if program has several simultaneous asynchronous operations
++    // on the same handle (i.e. ReadFile and WriteFile)
++    ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
++
++    // Start write operation - synchronous or asynchronous
++    DWORD bytesWritten = 0;
++    if (!WriteFile((HANDLE)data->fd, data->bufferData, static_cast<DWORD>(data->bufferLength), &bytesWritten, &ov)) {
++      DWORD lastError = GetLastError();
++      if (lastError != ERROR_IO_PENDING) {
++        // Write operation error
++        ErrorCodeToString("Writing to COM port (WriteFile)", lastError, data->errorString);
++        CloseHandle(ov.hEvent);
++        return;
++      }
++      // Write operation is completing asynchronously
++      // We MUST wait for the operation completion before deallocation of OVERLAPPED struct
++      // or write data buffer
++
++      // block for async write operation completion
++      bytesWritten = 0;
++      if (!GetOverlappedResult((HANDLE)data->fd, &ov, &bytesWritten, TRUE)) {
++        // Write operation error
++        DWORD lastError = GetLastError();
++        ErrorCodeToString("Writing to COM port (GetOverlappedResult)", lastError, data->errorString);
++        CloseHandle(ov.hEvent);
++        return;
++      }
++    }
++    // Write operation completed synchronously
++    data->result = bytesWritten;
++    data->offset += data->result;
++    CloseHandle(ov.hEvent);
+   } while (data->bufferLength > data->offset);
+-
+ }
+ 
+ void EIO_Close(uv_work_t* req) {
+@@ -387,113 +445,127 @@ void EIO_Close(uv_work_t* req) {
+   // Look up function address
+   CancelIoExType pCancelIoEx = (CancelIoExType)GetProcAddress(hKernel32, "CancelIoEx");
+   // Do something with it
+-  if (pCancelIoEx)
+-  {
+-      // Function exists so call it
+-      // Cancel all pending IO Requests for the current device
+-      pCancelIoEx((HANDLE)data->fd, NULL);
++  if (pCancelIoEx) {
++    // Function exists so call it
++    // Cancel all pending IO Requests for the current device
++    pCancelIoEx((HANDLE)data->fd, NULL);
+   }
+-  if(!CloseHandle((HANDLE)data->fd)) {
++  if (!CloseHandle((HANDLE)data->fd)) {
+     ErrorCodeToString("closing connection", GetLastError(), data->errorString);
+     return;
+   }
+ }
+ 
+-/*
+- * listComPorts.c -- list COM ports
+- *
+- * http://github.com/todbot/usbSearch/
+- *
+- * 2012, Tod E. Kurt, http://todbot.com/blog/
+- *
+- *
+- * Uses DispHealper : http://disphelper.sourceforge.net/
+- *
+- * Notable VIDs & PIDs combos:
+- * VID 0403 - FTDI
+- *
+- * VID 0403 / PID 6001 - Arduino Diecimila
+- *
+- */
++char *copySubstring(char *someString, int n)
++{
++  char *new_ = (char*)malloc(sizeof(char)*n + 1);
++  strncpy_s(new_, n + 1, someString, n);
++  new_[n] = '\0';
++  return new_;
++}
++
+ void EIO_List(uv_work_t* req) {
+   ListBaton* data = static_cast<ListBaton*>(req->data);
+ 
+-  {
+-    DISPATCH_OBJ(wmiSvc);
+-    DISPATCH_OBJ(colDevices);
+-
+-    dhInitialize(TRUE);
+-    dhToggleExceptions(FALSE);
+-
+-    dhGetObject(L"winmgmts:{impersonationLevel=impersonate}!\\\\.\\root\\cimv2", NULL, &wmiSvc);
+-    dhGetValue(L"%o", &colDevices, wmiSvc, L".ExecQuery(%S)", L"Select * from Win32_PnPEntity");
+-
+-    int port_count = 0;
+-    FOR_EACH(objDevice, colDevices, NULL) {
+-      char* name = NULL;
+-      char* pnpid = NULL;
+-      char* manu = NULL;
+-      char* match;
+-
+-      dhGetValue(L"%s", &name,  objDevice, L".Name");
+-      dhGetValue(L"%s", &pnpid, objDevice, L".PnPDeviceID");
+-
+-      if( name != NULL && ((match = strstr( name, "(COM" )) != NULL) ) { // look for "(COM23)"
+-        // 'Manufacturuer' can be null, so only get it if we need it
+-        dhGetValue(L"%s", &manu, objDevice,  L".Manufacturer");
+-        port_count++;
+-        char* comname = strtok( match, "()");
+-        ListResultItem* resultItem = new ListResultItem();
+-        resultItem->comName = comname;
+-        resultItem->manufacturer = manu;
+-        resultItem->pnpId = pnpid;
+-        data->results.push_back(resultItem);
+-        dhFreeString(manu);
++  GUID *guidDev = (GUID*)& GUID_DEVCLASS_PORTS;
++  HDEVINFO hDevInfo = SetupDiGetClassDevs(guidDev, NULL, NULL, DIGCF_PRESENT | DIGCF_PROFILE);
++  SP_DEVINFO_DATA deviceInfoData;
++
++  int memberIndex = 0;
++  DWORD dwSize, dwPropertyRegDataType;
++  char szBuffer[400];
++  char *pnpId;
++  char *vendorId;
++  char *productId;
++  char *name;
++  char *manufacturer;
++  char *locationId;
++  bool isCom;
++  while (true) {
++    pnpId = NULL;
++    vendorId = NULL;
++    productId = NULL;
++    name = NULL;
++    manufacturer = NULL;
++    locationId = NULL;
++
++    ZeroMemory(&deviceInfoData, sizeof(SP_DEVINFO_DATA));
++    deviceInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
++
++    if (SetupDiEnumDeviceInfo(hDevInfo, memberIndex, &deviceInfoData) == FALSE) {
++      if (GetLastError() == ERROR_NO_MORE_ITEMS) {
++        break;
+       }
++    }
+ 
+-      dhFreeString(name);
+-      dhFreeString(pnpid);
+-    } NEXT(objDevice);
++    dwSize = sizeof(szBuffer);
++    SetupDiGetDeviceInstanceId(hDevInfo, &deviceInfoData, szBuffer, dwSize, &dwSize);
++    szBuffer[dwSize] = '\0';
++    pnpId = strdup(szBuffer);
+ 
+-    SAFE_RELEASE(colDevices);
+-    SAFE_RELEASE(wmiSvc);
++    vendorId = strstr(szBuffer, "VID_");
++    if (vendorId) {
++      vendorId += 4;
++      vendorId = copySubstring(vendorId, 4);
++    }
++    productId = strstr(szBuffer, "PID_");
++    if (productId) {
++      productId += 4;
++      productId = copySubstring(productId, 4);
++    }
+ 
+-    dhUninitialize(TRUE);
+-  }
++    if (SetupDiGetDeviceRegistryProperty(hDevInfo, &deviceInfoData, SPDRP_LOCATION_INFORMATION, &dwPropertyRegDataType, (BYTE*)szBuffer, sizeof(szBuffer), &dwSize)) {
++      locationId = strdup(szBuffer);
++    }
++    if (SetupDiGetDeviceRegistryProperty(hDevInfo, &deviceInfoData, SPDRP_MFG, &dwPropertyRegDataType, (BYTE*)szBuffer, sizeof(szBuffer), &dwSize)) {
++      manufacturer = strdup(szBuffer);
++    }
+ 
+-  std::vector<UINT> ports;
+-  if (CEnumerateSerial::UsingQueryDosDevice(ports))
+-  {
+-    for (size_t i = 0; i < ports.size(); i++)
+-    {
+-      char comname[64] = { 0 };
+-      _snprintf(comname, sizeof(comname), "COM%u", ports[i]);
+-      bool bFound = false;
+-      for (std::list<ListResultItem*>::iterator ri = data->results.begin(); ri != data->results.end(); ++ri)
+-      {
+-        if (stricmp((*ri)->comName.c_str(), comname) == 0)
+-        {
+-          bFound = true;
+-          break;
+-        }
++    HKEY hkey = SetupDiOpenDevRegKey(hDevInfo, &deviceInfoData, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_READ);
++    if (hkey != INVALID_HANDLE_VALUE) {
++      dwSize = sizeof(szBuffer);
++      if (RegQueryValueEx(hkey, "PortName", NULL, NULL, (LPBYTE)&szBuffer, &dwSize) == ERROR_SUCCESS) {
++        szBuffer[dwSize] = '\0';
++        name = strdup(szBuffer);
++        isCom = strstr(szBuffer, "COM") != NULL;
+       }
+-      if (!bFound)
+-      {
+-        ListResultItem* resultItem = new ListResultItem();
+-        resultItem->comName = comname;
+-        resultItem->manufacturer = "";
+-        resultItem->pnpId = "";
+-        data->results.push_back(resultItem);
++    }
++    if (isCom) {
++      ListResultItem* resultItem = new ListResultItem();
++      resultItem->comName = name;
++      resultItem->manufacturer = manufacturer;
++      resultItem->pnpId = pnpId;
++      if (vendorId) {
++        resultItem->vendorId = vendorId;
++      }
++      if (productId) {
++        resultItem->productId = productId;
+       }
++      if (locationId) {
++        resultItem->locationId = locationId;
++      }
++      data->results.push_back(resultItem);
+     }
++    free(pnpId);
++    free(vendorId);
++    free(productId);
++    free(locationId);
++    free(manufacturer);
++    free(name);
++
++    RegCloseKey(hkey);
++    memberIndex++;
++  }
++  if (hDevInfo) {
++    SetupDiDestroyDeviceInfoList(hDevInfo);
+   }
+ }
+ 
+ void EIO_Flush(uv_work_t* req) {
+   FlushBaton* data = static_cast<FlushBaton*>(req->data);
+ 
+-  if(!FlushFileBuffers((HANDLE)data->fd)) {
+-    ErrorCodeToString("flushing connection", GetLastError(), data->errorString);
++  if (!FlushFileBuffers((HANDLE)data->fd)) {
++    ErrorCodeToString("flushing connection (FlushFileBuffers)", GetLastError(), data->errorString);
+     return;
+   }
+ }
+@@ -501,8 +573,8 @@ void EIO_Flush(uv_work_t* req) {
+ void EIO_Drain(uv_work_t* req) {
+   DrainBaton* data = static_cast<DrainBaton*>(req->data);
+ 
+-  if(!FlushFileBuffers((HANDLE)data->fd)) {
+-    ErrorCodeToString("draining connection", GetLastError(), data->errorString);
++  if (!FlushFileBuffers((HANDLE)data->fd)) {
++    ErrorCodeToString("draining connection (FlushFileBuffers)", GetLastError(), data->errorString);
+     return;
+   }
+ }
+-- 
+2.7.4
+
